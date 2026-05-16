@@ -78,10 +78,12 @@ belonging to orbit classes with fundamentally different propagation
 characteristics.
 Such transitions are \emph{abrupt} --- the link properties change at the
 granularity of a single RTT --- and \emph{asymmetric}:
-a LEO$\to$GEO handover simultaneously reduces available bandwidth from
-50\,Mbps to 10\,Mbps and increases the round-trip propagation delay from
-50\,ms to 580\,ms, resulting in a bandwidth-delay product (BDP) change of
-roughly $14\times$.
+a LEO$\to$GEO handover simultaneously reduces the available link rate by
+$5\times$ (50$\to$10\,Mbps) and increases the round-trip propagation delay
+by $\sim$$12\times$ (50$\to$580\,ms).
+Because the GEO BDP (10\,Mbps$\times$580\,ms\,=\,725\,KB) exceeds the
+LEO BDP (50\,Mbps$\times$50\,ms\,=\,312\,KB), the \emph{new} orbit requires
+a \emph{larger} inflight window --- but at a \emph{much lower} pacing rate.
 
 Modern QUIC stacks running BBRv3~\cite{cardwell2017} are particularly
 poorly suited to absorb this transition.
@@ -89,9 +91,9 @@ BBRv3's two-cycle \texttt{MaxBwFilter} requires approximately
 $8 \times \mathrm{RTT}_\mathrm{new}$ to clear its pre-handover bandwidth
 estimate.
 On a GEO link ($\mathrm{RTT} \approx 580$\,ms) that amounts to roughly
-5\,seconds of sustained over-pacing into a bottleneck link one-fifth the
-sender's assumed capacity, during which the on-path buffer fills to its
-limit (${\approx}33$\,MB in our experiments).
+5\,seconds of sustained over-pacing at 50\,Mbps into a 10\,Mbps pipe,
+accumulating $\approx$33\,MB of queued data in our experiments before the
+filter clears and the sender backs off.
 
 The central insight motivating BBR-SAT is that satellite operators have
 \emph{advance knowledge} of handover events: orbital mechanics are
@@ -109,10 +111,10 @@ This paper makes the following contributions:
 \begin{itemize}
   \item The BBR-SAT algorithm: two new signals, an orbit parameter table,
         and a two-phase handover protocol integrated into BBRv3 with
-        $<$30 lines of state change (\S\ref{sec:design}).
+        $<$100 lines of new state and signal-handling code (\S\ref{sec:design}).
   \item A zero-loss, shared-link QUIC simulator (picoquic-based) covering
         all six pairwise orbit transitions at three handover times and
-        seven lead times (\S\ref{sec:methodology}).
+        six lead times (\S\ref{sec:methodology}).
   \item Empirical demonstration that BBR-SAT is the only evaluated mechanism
         to converge at the critical LEO$\to$GEO transition for lead times
         spanning zero to twenty seconds (\S\ref{sec:exp1}).
@@ -132,17 +134,19 @@ congestion-control algorithm that drives the sender at the estimated
 available bandwidth (\texttt{bw}) using a pacing rate and an inflight
 ceiling derived from the path BDP.
 BBRv3, the current revision, maintains three key long-term state variables:
-\texttt{bw\_hi} (two-cycle windowed maximum delivery rate),
+\texttt{bw\_hi} (long-term delivery-rate ceiling, updated on loss events),
 \texttt{min\_rtt} (minimum RTT sampled over a 10-second window), and
 \texttt{inflight\_hi} (long-term inflight limit, updated on loss signals).
+A separate two-slot windowed maximum filter (\texttt{MaxBwFilter}) tracks
+the short-term peak delivery rate over the last two ProbeBW cycles.
 The algorithm cycles through four ProbeBW sub-states ---
 DOWN, CRUISE, REFILL, UP --- to probe for spare capacity while maintaining
 a near-full pipe.
 
-The critical weakness on abrupt downward BDP transitions is the
-\texttt{MaxBwFilter}: it retains the pre-handover delivery rate estimate
-across two full probe cycles ($2 \times \mathrm{RTT}_\mathrm{new}$ each),
-so the pacing rate remains calibrated to the old orbit for approximately
+The critical weakness on abrupt downward transitions is the
+\texttt{MaxBwFilter}: a two-slot windowed max spanning two complete ProbeBW
+cycles, each lasting $\sim$4\,$\mathrm{RTT}_\mathrm{new}$, means the pacing
+rate remains calibrated to the old orbit for approximately
 $8 \times \mathrm{RTT}_\mathrm{new}$ after the beam switch.
 
 \subsection{Satellite TCP/QUIC Research}
@@ -290,8 +294,9 @@ at deterministic simulation times.
 A \texttt{vary\_link\_spec} array changes link parameters (rate, latency,
 buffer) at \texttt{handover\_time\_s}, modelling the beam switch.
 
-Each simulation runs two QUIC connections (server$\to$client bulk transfer)
-sharing the same bottleneck.
+Single-flow experiments use one QUIC connection (server$\to$client bulk
+transfer); fairness experiments use two connections sharing the same
+bottleneck.
 All simulations are zero-loss (no packet loss injection) to isolate the
 congestion-control response from loss-recovery interactions.
 
@@ -305,17 +310,21 @@ congestion-control response from loss-recovery interactions.
 \small
 \begin{tabular}{lrrr}
 \toprule
-Orbit & Link rate & RTT  & Buffer (2$\times$RTT) \\
+Orbit & Link rate & RTT  & BDP \\
 \midrule
-LEO   & 50\,Mbps  & 50\,ms  & 625\,KB \\
-MEO   & 30\,Mbps  & 150\,ms & 1\,125\,KB \\
-GEO   & 10\,Mbps  & 580\,ms & 1\,450\,KB \\
+LEO   & 50\,Mbps  & 50\,ms  & 312\,KB \\
+MEO   & 30\,Mbps  & 150\,ms & 562\,KB \\
+GEO   & 10\,Mbps  & 580\,ms & 725\,KB \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Table~\ref{tab:orbits} lists the parameters used for each orbit class.
-Buffer sizes are set to two times the one-way propagation delay product.
+The simulator's queuing is soft-limited by a $2\times$RTT delay threshold;
+the \emph{effective} buffer in our experiments is uncapped by that threshold
+(packets continue to queue if the sender does not back off), which is why
+Table~\ref{tab:exp1_leo_geo} shows a 33\,MB build-up for B1/B3 rather
+than the $\sim$725\,KB hard-BDP limit.
 
 \subsection{Baselines}
 
@@ -323,6 +332,8 @@ Buffer sizes are set to two times the one-way propagation delay product.
   \item \textbf{B1} --- Vanilla BBRv3 (no modification, no signal).
   \item \textbf{B3} --- cwnd-freeze: congestion window is held constant
         from the PREDICTED signal until five RTTs after CONFIRMED.
+        (B2, a delayed-reduction variant, produced results
+        indistinguishable from B1 at all tested lead times and is omitted.)
   \item \textbf{B4} --- send-pause/resume: the sender pauses all
         transmissions on PREDICTED and resumes on CONFIRMED.
   \item \textbf{BBR-SAT} --- the proposed algorithm (this work).
@@ -331,6 +342,10 @@ Buffer sizes are set to two times the one-way propagation delay product.
 
 B3 and B4 are common heuristics proposed informally in the satellite
 operator community; CUBIC serves as a loss-driven convergence reference.
+In our prototype, PREDICTED and CONFIRMED signals are injected at the
+application layer via picoquic's \texttt{alg\_notify} callback;
+a production deployment would carry them in a QUIC DATAGRAM frame or
+operator-defined transport parameter.
 
 \subsection{Experiment Parameters}
 
@@ -338,7 +353,7 @@ operator community; CUBIC serves as a loss-driven convergence reference.
 Each baseline is run through all six pairwise orbit transitions
 (LEO$\leftrightarrow$MEO, LEO$\leftrightarrow$GEO, MEO$\leftrightarrow$GEO)
 at three handover times ($T_\mathrm{HO} \in \{30, 60, 120\}$\,s)
-and seven lead times ($\ell \in \{0, 2, 5, 10, 20, 30, 60\}$\,s).
+and six lead times ($\ell \in \{0, 2, 5, 10, 20, 30\}$\,s).
 Total simulation: 90\,s per trial.
 
 \textbf{Experiment 2 (fairness):}
@@ -362,8 +377,8 @@ Each condition is repeated twice; post-event averages are 2-run means.
 We drive each of the five baselines through all six pairwise orbit
 transitions (LEO$\leftrightarrow$MEO, LEO$\leftrightarrow$GEO,
 MEO$\leftrightarrow$GEO) at three handover times
-($T_\mathrm{HO} \in \{30, 60, 120\}$\,s) and seven lead times
-($\ell \in \{0, 2, 5, 10, 20, 30, 60\}$\,s).
+($T_\mathrm{HO} \in \{30, 60, 120\}$\,s) and six lead times
+($\ell \in \{0, 2, 5, 10, 20, 30\}$\,s).
 Each condition is a zero-loss, single-flow simulation; parameters for each
 orbit are given in Table~\ref{tab:orbits}.
 The primary metric is \textbf{T90}: the elapsed time from
@@ -457,7 +472,7 @@ CUBIC              & 1.5\,s & 10.0\,Mbps & 66.4\,MB & 1\,328\,KB \\
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{results/fairness/fig_t90_lead.pdf}
+\includegraphics[width=\columnwidth]{../results/fairness/fig_t90_lead.pdf}
 \caption{T90 vs.\ advance lead time for the LEO$\to$GEO transition
 ($T_\mathrm{HO}=30$\,s, no loss).
 BBR-SAT maintains a flat 2.5\,s across $\ell \in [0,20]$\,s;
@@ -476,7 +491,7 @@ The practical interpretation is that any advance notice in the range
 2--20\,s is equally effective; the value of the PREDICTED signal lies
 primarily in proactive queue drain that prevents mid-flight data
 from inflating the post-handover queue, and this drain completes within
-one to two GEO RTTs.
+one to two \emph{pre-handover} (LEO) RTTs ($\approx$50--100\,ms).
 
 \subsubsection{Bandwidth-Increasing and Moderate Transitions}
 
@@ -487,10 +502,15 @@ every baseline converges at $\ell = 0$ with T90 $\leq 3.5$\,s
 Bandwidth increases are inherently self-correcting: the new link can absorb
 the pre-handover cwnd without queue buildup, and BBR's bandwidth probing
 detects the higher capacity within one probe cycle.
-BBR-SAT's T90 at $\ell = 0$ is 0--1\,s higher than B1/B3 on these
+BBR-SAT's T90 at $\ell = 0$ is 0--1\,s higher than B1/B3 on most
 transitions because the CONFIRMED signal briefly forces a REFILL
-phase before resuming ProbeBW; with $\ell \geq 2$\,s this overhead
-disappears as the PREDICTED signal pre-positions the orbit context.
+phase before resuming ProbeBW.
+The exception is LEO$\to$MEO (Table~\ref{tab:exp1_all_transitions}):
+BBR-SAT takes 8.5\,s vs B1/B3's 0.5\,s because MEO's higher RTT
+(150\,ms) extends the REFILL ramp and the seeded \texttt{bw\_hi} ceiling
+(30\,Mbps) temporarily limits probing above the new fair share.
+With $\ell \geq 2$\,s this overhead disappears as the PREDICTED signal
+pre-positions the orbit context before the handover fires.
 
 \begin{table}[t]
 \centering
@@ -535,8 +555,9 @@ competing flows that share the bottleneck.
 We evaluate two scenarios using the shared-link simulator described in
 \S\ref{sec:methodology}:
 \textbf{F1}~---~two flows both crossing a LEO$\to$GEO handover at $T=30$\,s,
-and
-\textbf{F3}~---~two flows that start simultaneously on a GEO beam
+and \textbf{F3}~---~two flows that start simultaneously on a GEO beam
+(F2, covering BBR-SAT joining an already-converged GEO flow, reduces to
+the F3 post-convergence case and is subsumed by it).
 and reach steady state before BBR-SAT re-anchors its BDP context at
 $T=30$\,s.
 In both scenarios the BBR-SAT flow is flow~1; flow~2 runs either
@@ -614,7 +635,7 @@ this work but is a natural direction for future study.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{results/fairness/fig_fairness.pdf}
+\includegraphics[width=\columnwidth]{../results/fairness/fig_fairness.pdf}
 \caption{Fairness results.
 (a) F1: BBR-SAT vs.\ BBRv3 during shared LEO$\to$GEO handover (lead=0,
 2-run average); inset shows the F1-vs-CUBIC bandwidth split by lead time.
@@ -661,31 +682,13 @@ rather than a systematic bias.}
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{When Zero Lead Time Suffices}
-
-A key practical result is that BBR-SAT achieves T90 = 2.5\,s even with
-$\ell = 0$ --- no advance notice at all.
-This is possible because the orbit table is populated at connection setup
-from ephemeris data, not from runtime measurements.
-The CONFIRMED signal alone is sufficient for the BDP context switch; the
-PREDICTED signal adds value only by proactively draining the queue before
-the handover fires, which reduces the amount of in-flight data that must be
-discarded or aged out post-handover.
-Operators that cannot reliably deliver PREDICTED at any lead time can
-still deploy BBR-SAT and benefit from the CONFIRMED-only path.
-
-\subsection{The 20-Second Lead-Time Ceiling}
-
-The empirical ceiling at $\ell \approx 20$\,s is set by the interplay
-between two time constants: the drain duration (one to two RTTs of the
-pre-handover orbit, $\approx$50--100\,ms for LEO) and BBR's
-ProbeBW\_UP cycle duration (several hundred milliseconds at GEO RTT).
-Once the drain completes, BBR naturally probes upward and rebuilds a
-LEO-calibrated cwnd; if the handover has not yet fired, the sender
-is back to the over-pacing state.
-The practical implication is that lead times in the range 2--20\,s are
-all equivalent; system designers can treat any signal in this window as
-maximally useful.
+BBR-SAT achieves T90\,=\,2.5\,s even at $\ell=0$ because the orbit table
+is pre-seeded from ephemeris data; the CONFIRMED signal alone suffices for
+the BDP context switch.
+The 20-second practical ceiling on useful lead time arises because the
+proactive drain (50--100\,ms at LEO RTT) completes well before the handover
+fires, after which BBR's ProbeBW\_UP re-inflates the cwnd; operators can
+treat any signal in the 2--20\,s window as equivalent.
 
 \subsection{Limitations and Future Work}
 
