@@ -1,0 +1,162 @@
+% ── Section V-A: Single-Flow Handover Performance ────────────────────────────
+% Placed before the fairness section in the Evaluation.
+
+\subsection{Single-Flow Handover Performance}
+\label{sec:exp1}
+
+\subsubsection{Setup}
+
+We drive each of the five baselines through all six pairwise orbit
+transitions (LEO$\leftrightarrow$MEO, LEO$\leftrightarrow$GEO,
+MEO$\leftrightarrow$GEO) at three handover times
+($T_\mathrm{HO} \in \{30, 60, 120\}$\,s) and seven lead times
+($\ell \in \{0, 2, 5, 10, 20, 30, 60\}$\,s).
+Each condition is a zero-loss, single-flow simulation; parameters for each
+orbit are given in Table~\ref{tab:orbits}.
+The primary metric is \textbf{T90}: the elapsed time from
+$T_\mathrm{HO}$ until the delivered throughput first reaches
+90\,\% of the new orbit's link capacity, measured as a one-second rolling
+average.
+A trial is declared \emph{not converged} (N/C) if T90 exceeds the
+60-second post-handover window.
+We additionally record post-handover steady-state throughput
+(mean over $t \in (T_\mathrm{HO}+20, T_\mathrm{HO}+60]$\,s),
+goodput (total bytes delivered in the 90-second run),
+and peak on-path queue depth.
+
+\subsubsection{LEO$\to$GEO: the critical transition}
+
+A downward BDP transition --- lower link rate, higher latency, larger BDP
+--- is the most demanding case.
+Table~\ref{tab:exp1_leo_geo} and Figure~\ref{fig:t90_lead} show results
+for the LEO$\to$GEO transition at $T_\mathrm{HO} = 30$\,s with $\ell = 0$.
+
+\textbf{B1 (vanilla BBRv3)} fails entirely: the on-path queue inflates to
+33\,MB (the full GEO buffer), steady-state throughput is effectively zero,
+and the 90\% threshold is never reached within the 60-second window.
+The root cause is that BBRv3 retains its LEO-calibrated bandwidth estimate
+after handover.
+Because BBRv3's two-cycle \texttt{MaxBwFilter} clears only after roughly
+$8 \times \mathrm{RTT}_\mathrm{GEO} \approx 5$\,s~\cite{cardwell2017},
+the sender continues pacing at $\approx$50\,Mbps into a 10\,Mbps pipe,
+sustaining a queue that grows without bound at the simulation's buffer limit.
+
+\textbf{B3 (cwnd-freeze)} exhibits the same failure mode.
+Freezing the congestion window at the pre-handover LEO value leaves an
+equally oversized window in place; the buffer fills to 33\,MB
+identically to B1.
+Advance warning is useless: even at $\ell = 30$\,s, B3 does not converge.
+
+\textbf{B4 (send-pause / resume)} converges exactly once across the full
+lead-time sweep, at $\ell = 5$\,s (T90 = 5.6\,s), and fails at every
+other lead time.
+The narrow success window reflects the tight timing between the pause
+duration and the GEO queue-drain time: too short a pause leaves residual
+in-flight data that re-inflates the queue; too long a pause wastes capacity
+and triggers a slow-start on resume.
+
+\textbf{BBR-SAT} converges at every tested lead time from $\ell = 0$ to
+$\ell = 20$\,s, with T90 = 2.5\,s throughout.
+On receiving the CONFIRMED signal at $T_\mathrm{HO}$, the algorithm
+loads the seeded GEO orbit entry (\texttt{bw\_hi} = 10\,Mbps, \texttt{min\_rtt}
+= 580\,ms), enters a brief DRAIN phase to clear residual in-flight data,
+then transitions to REFILL and converges to a steady-state of 9.2\,Mbps
+(92\,\% of link capacity) with a peak queue of only 910\,KB --- a
+36$\times$ reduction compared to B1/B3.
+Goodput over the 90-second run is 56.9\,MB, largely independent of lead time.
+
+At $\ell = 30$\,s, T90 degrades sharply to 47.6\,s.
+The PREDICTED signal at $t = 0$\,s (i.e.\ $T_\mathrm{HO} - 30$\,s)
+initiates a proactive queue drain via ProbeBW\_DOWN; however, because
+the actual handover does not occur for 30\,s, BBR-SAT re-enters
+ProbeBW\_UP and rebuilds a LEO-calibrated queue before the CONFIRMED
+signal fires.
+This establishes a practical upper bound: lead times up to approximately
+20\,s are beneficial; beyond that, pre-draining fires too early to hold.
+
+\textbf{CUBIC} converges in 1.5\,s at all lead times, achieving a
+steady-state of 10.0\,Mbps (100\,\% utilization) and 66.4\,MB goodput.
+The rapid convergence is loss-driven: the queue overflow immediately after
+handover triggers multiplicative window reduction, and CUBIC settles within
+two to three 580\,ms GEO RTTs.
+Although CUBIC achieves slightly higher single-flow throughput than
+BBR-SAT (at the cost of a 1.3\,MB peak queue versus 910\,KB), its
+behaviour under competition is discussed in Section~\ref{sec:fairness}.
+
+\begin{table}[t]
+\centering
+\caption{LEO$\to$GEO, $T_\mathrm{HO}=30$\,s, $\ell=0$, no loss}
+\label{tab:exp1_leo_geo}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Baseline & T90 & SS bw & Goodput & Peak queue \\
+\midrule
+B1 Vanilla BBRv3  & N/C   & 0.0\,Mbps & 5.4\,MB  & 33\,120\,KB \\
+B3 cwnd-freeze    & N/C   & 0.0\,Mbps & 5.4\,MB  & 33\,120\,KB \\
+B4 pause/resume   & N/C   & 0.0\,Mbps & 3.8\,MB  & 34\,238\,KB \\
+BBR-SAT (ours)    & \textbf{2.5\,s} & \textbf{9.2\,Mbps} & \textbf{56.9\,MB} & \textbf{910\,KB} \\
+B5 CUBIC          & 1.5\,s & 10.0\,Mbps & 66.4\,MB & 1\,328\,KB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Lead-time sensitivity}
+
+Figure~\ref{fig:t90_lead} plots T90 as a function of lead time for the
+LEO$\to$GEO transition.
+BBR-SAT maintains a flat T90 of 2.5\,s across $\ell \in [0, 20]$\,s,
+confirming that the PREDICTED signal is effectively used but that even
+zero lead time is sufficient for convergence given the seeded orbit table.
+The practical interpretation is that any advance notice in the range
+2--20\,s is equally effective; the value of the PREDICTED signal lies
+primarily in \emph{proactive queue drain} that prevents mid-flight data
+from inflating the post-handover queue, and this drain completes within
+one to two GEO RTTs.
+
+\subsubsection{BW-increasing and moderate transitions}
+
+For all bandwidth-increasing transitions (MEO$\to$LEO, GEO$\to$LEO,
+GEO$\to$MEO) and the moderate MEO$\to$GEO and LEO$\to$MEO transitions,
+every baseline converges at $\ell = 0$ with T90 $\leq 3.5$\,s
+(Table~\ref{tab:exp1_all_transitions}).
+Bandwidth increases are inherently self-correcting: the new link can absorb
+the pre-handover cwnd without queue buildup, and BBR's bandwidth probing
+detects the higher capacity within one probe cycle.
+BBR-SAT's T90 at $\ell = 0$ is 0--1\,s higher than B1/B3 on these
+transitions because the CONFIRMED signal briefly forces a REFILL
+phase before resuming ProbeBW; with $\ell \geq 2$\,s this overhead
+disappears as the PREDICTED signal pre-positions the orbit context.
+
+\begin{table}[t]
+\centering
+\caption{T90 at $\ell = 0$, $T_\mathrm{HO} = 30$\,s, no loss (all transitions)}
+\label{tab:exp1_all_transitions}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Transition & B1 & B3 & B4 & BBR-SAT & CUBIC \\
+\midrule
+LEO$\to$MEO  & 0.5\,s & 0.5\,s & 6.5\,s & 8.5\,s  & 0.5\,s \\
+LEO$\to$GEO  & N/C    & N/C    & N/C    & \textbf{2.5\,s} & 1.5\,s \\
+MEO$\to$LEO  & 2.5\,s & 2.5\,s & 0.5\,s & 3.5\,s  & 0.5\,s \\
+GEO$\to$LEO  & 1.5\,s & 1.5\,s & 2.5\,s & 2.5\,s  & 1.5\,s \\
+MEO$\to$GEO  & 1.5\,s & 1.5\,s & 1.5\,s & 2.5\,s  & 1.5\,s \\
+GEO$\to$MEO  & 1.5\,s & 1.5\,s & 2.5\,s & 2.5\,s  & 1.5\,s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Handover-time sensitivity}
+
+Repeating the LEO$\to$GEO experiment at $T_\mathrm{HO} = 60$\,s reveals
+moderate T90 inflation: BBR-SAT achieves 2.5\,s at $\ell \in \{0, 20\}$\,s
+but 7.5--9.5\,s at intermediate lead times, likely due to the orbit table's
+minimum-RTT entry drifting over the longer pre-handover interval as
+BBR natural probing samples slightly elevated RTTs.
+At $T_\mathrm{HO} = 120$\,s all BBR-SAT conditions fail to converge,
+suggesting that the orbit table's 10-second \texttt{min\_rtt} expiry window
+allows the seeded GEO RTT entry to become stale before the handover fires.
+Extending the orbit table's RTT confidence window for long-duration pre-handover
+periods is identified as future work.

@@ -1,0 +1,10 @@
+build/
+picoquic/
+picoquic-main/
+picotls/
+results/**/*.png
+results/**/*.pdf
+__pycache__/
+*.pyc
+*.log
+*.qlog
