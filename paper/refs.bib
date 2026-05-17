@@ -1,5 +1,101 @@
-@article{cardwell2017,
-  author  = {Cardwell, Neal and Cheng, Yuchung and Gunn, C. Stephen and
+%% ── Intra-LEO cross-layer CCA (2024–2026) ────────────────────────────────────
+
+@inproceedings{zhao2024starquic,
+  author    = {Zhao, Jingqi and Pan, Jianping},
+  title     = {{StarQUIC}: Satellite-Friendly {QUIC} Congestion Control},
+  booktitle = {Proc. ACM MobiCom Workshop on {LEO} Networking and Communication
+               ({LEO-NET})},
+  year      = {2024},
+  doi       = {10.1145/3697253.3697271}
+}
+
+@inproceedings{zhao2025satpipe,
+  author    = {Zhao, Di and others},
+  title     = {{SatPipe}: Proactive Queue Management for {LEO} Satellite Handovers},
+  booktitle = {Proc. IEEE INFOCOM},
+  year      = {2025},
+  note      = {IEEE Xplore 11044600}
+}
+
+@inproceedings{lai2025leocc,
+  author    = {Lai, Zhengyu and others},
+  title     = {{LeoCC}: Handover-Aware Congestion Control for {LEO} Satellites},
+  booktitle = {Proc. ACM SIGCOMM},
+  year      = {2025},
+  pages     = {129--146},
+  doi       = {10.1145/3718958.3750491}
+}
+
+@inproceedings{yan2025creo,
+  author    = {Yan, Yushan and Li, Jian and Han, Jianping and Long, Qiang
+               and Xue, Kaiping and Chen, Hongjia and Qiao, Nan},
+  title     = {A Handover-Aware Congestion Control Algorithm Assisted by
+               {DRL} in {LEO} Satellite Networks},
+  booktitle = {Proc. IEEE ICC},
+  year      = {2025},
+  address   = {Montreal},
+  note      = {IEEE Xplore 11161022}
+}
+
+@misc{valentine2025orbcc,
+  author       = {Valentine, Ross and others},
+  title        = {{OrbCC}: In-Network Telemetry for Orbit-Aware Congestion Control},
+  year         = {2025},
+  howpublished = {arXiv:2508.19067v2},
+  note         = {Preprint, not peer-reviewed}
+}
+
+%% ── IETF handover abstractions ───────────────────────────────────────────────
+
+@techreport{lai2026lsncc,
+  author      = {Lai, Zhengyu and Li, Zhiyuan and Wu, Qiulin and Li, Han
+                 and Zhang, Qi},
+  title       = {Analysis for the Adverse Effects of {LEO} Mobility on
+                 Internet Congestion Control},
+  institution = {IETF},
+  type        = {Internet-Draft},
+  number      = {draft-lai-ccwg-lsncc-01},
+  month       = feb,
+  year        = {2026},
+  note        = {CCWG, individual, Informational}
+}
+
+@techreport{kuhn2025carefulresume,
+  author      = {Kuhn, Nicolas and others},
+  title       = {Convergence of Congestion Control from Retained State},
+  institution = {IETF},
+  type        = {Internet-Draft},
+  number      = {draft-ietf-tsvwg-careful-resume-24},
+  month       = oct,
+  year        = {2025},
+  note        = {RFC Editor Queue}
+}
+
+@inproceedings{hofstatter2025crsat,
+  author    = {Hofst{\"a}tter, Markus and others},
+  title     = {Careful Resume over Satellite Paths},
+  booktitle = {Proc. IEEE ASMS/SPSC},
+  year      = {2025},
+  note      = {IEEE Xplore 10946055}
+}
+
+%% ── BBRv3 ────────────────────────────────────────────────────────────────────
+
+@techreport{cardwell2026bbr,
+  author      = {Cardwell, Neal and Cheng, Yuchung and Yeganeh, S.~Hossein
+                 and Swett, Ian and Vasiliev, Victor and Jha, Priyaranjan
+                 and Seung, Yousuk and Mathis, Matt and Beshay, Joseph},
+  title       = {{BBR} Congestion Control},
+  institution = {IETF},
+  type        = {Internet-Draft},
+  number      = {draft-ietf-ccwg-bbr-05},
+  month       = mar,
+  year        = {2026},
+  note        = {Work in progress}
+}
+
+@article{cardwell2016bbr,
+  author  = {Cardwell, Neal and Cheng, Yuchung and Gunn, C.~Stephen and
              Yeganeh, Soheil Hassas and Jacobson, Van},
   title   = {{BBR}: Congestion-Based Congestion Control},
   journal = {ACM Queue},
@@ -10,30 +106,49 @@
   doi     = {10.1145/3012426.3022184}
 }
 
-@inproceedings{caini2002,
-  author    = {Caini, Carlo and Firrincieli, Rosario},
-  title     = {{TCP} Hybla: a {TCP} Enhancement for Heterogeneous Networks},
-  booktitle = {Int'l J. Satellite Communications and Networking},
-  year      = {2004},
-  pages     = {547--566}
+%% ── CCA standards ────────────────────────────────────────────────────────────
+
+@techreport{duke2025rfc9743,
+  author      = {Duke, Martin and Fairhurst, Gorry},
+  title       = {Specifying New Congestion Control Algorithms},
+  type        = {RFC},
+  number      = {9743},
+  month       = mar,
+  year        = {2025},
+  institution = {IETF},
+  note        = {{BCP}~133, obsoletes {RFC}~5033}
 }
 
-@article{caini2004,
-  author  = {Caini, Carlo and Firrincieli, Rosario and Lacamera, Daniele},
-  title   = {On the Use of {TCP} Hybla for Satellite Links},
-  journal = {International Journal of Satellite Communications and Networking},
-  volume  = {22},
-  number  = {5},
-  pages   = {547--566},
-  year    = {2004}
+@techreport{pauly2022rfc9221,
+  author      = {Pauly, Tommy and Kinnear, Eric and Schinazi, David},
+  title       = {An Unreliable Datagram Extension to {QUIC}},
+  type        = {RFC},
+  number      = {9221},
+  month       = mar,
+  year        = {2022},
+  institution = {IETF}
 }
 
-@inproceedings{Henderson2001,
-  author    = {Henderson, Tom and Katz, Randy},
-  title     = {On Improving the Fairness of {TCP} Congestion Avoidance},
-  booktitle = {Proc. IEEE GLOBECOM},
-  year      = {1999},
-  pages     = {539--544}
+@techreport{border2001rfc3135,
+  author      = {Border, John and Kojo, Markku and Griner, Jim
+                 and Montenegro, Gabriel and Shelby, Zach},
+  title       = {Performance Enhancing Proxies Intended to Mitigate
+                 Link-Related Degradations},
+  type        = {RFC},
+  number      = {3135},
+  month       = jun,
+  year        = {2001},
+  institution = {IETF}
+}
+
+%% ── LEO/satellite context ────────────────────────────────────────────────────
+
+@inproceedings{handley2018delay,
+  author    = {Handley, Mark},
+  title     = {Delay is Not an Option: Low Latency Routing in Space},
+  booktitle = {Proc. ACM HotNets},
+  year      = {2018},
+  pages     = {85--91}
 }
 
 @inproceedings{bhattacherjee2019,
@@ -45,7 +160,7 @@
   doi       = {10.1145/3365609.3365859}
 }
 
-@inproceedings{michel2022,
+@inproceedings{michel2022starlink,
   author    = {Michel, Fran{\c{c}}ois and Trevisan, Martino and Rossi, Dario
                and Bonaventure, Olivier},
   title     = {A First Look at {Starlink} Performance},
@@ -55,7 +170,28 @@
   doi       = {10.1145/3517745.3561422}
 }
 
-@inproceedings{kuhn2020,
+@misc{mazilu2025leoeval,
+  author       = {Mazilu, Tudor and others},
+  title        = {Evaluating Learning-Based Congestion Control Schemes for
+                  {LEO} Satellite Networks},
+  year         = {2025},
+  howpublished = {arXiv:2510.25498},
+  note         = {Preprint, not peer-reviewed}
+}
+
+%% ── Satellite TCP/QUIC ───────────────────────────────────────────────────────
+
+@article{caini2004hybla,
+  author  = {Caini, Carlo and Firrincieli, Rosario},
+  title   = {{TCP} Hybla: A {TCP} Enhancement for Heterogeneous Networks},
+  journal = {International Journal of Satellite Communications and Networking},
+  volume  = {22},
+  number  = {5},
+  pages   = {547--566},
+  year    = {2004}
+}
+
+@inproceedings{kuhn2020quicsat,
   author    = {Kuhn, Nicolas and Lochin, Emmanuel and Mifdaoui, Ahlem
                and Fairhurst, Gorry and Pillai, Preethi},
   title     = {{QUIC} for {SATCOM}},
@@ -64,52 +200,7 @@
   note      = {IETF 108, Internet-Draft draft-kuhn-quic-4-sat}
 }
 
-@inproceedings{makris2019,
-  author    = {Makris, Nikos and Zarafetas, Giannis and Korakis, Thanasis
-               and Raychaudhuri, Dipankar},
-  title     = {An Empirical Study of {LTE} Handover Performance},
-  booktitle = {Proc. IEEE WoWMoM},
-  year      = {2019},
-  pages     = {1--9},
-  doi       = {10.1109/WoWMoM.2019.8793005}
-}
-
-@inproceedings{gettys2012,
-  author    = {Gettys, Jim and Nichols, Kathleen},
-  title     = {Bufferbloat: Dark Buffers in the Internet},
-  journal   = {ACM Queue},
-  volume    = {9},
-  number    = {11},
-  pages     = {40--54},
-  year      = {2011},
-  doi       = {10.1145/2076450.2076476}
-}
-
-@inproceedings{winstein2013,
-  author    = {Winstein, Keith and Sivaraman, Anirudh and Balakrishnan, Hari},
-  title     = {Stochastic Forecasts Achieve High Throughput and Low Delay
-               over Cellular Networks},
-  booktitle = {Proc. USENIX NSDI},
-  year      = {2013},
-  pages     = {459--471}
-}
-
-@inproceedings{zaki2015,
-  author    = {Zaki, Yasir and Liang, Liang and Goerg, Carmelita
-               and Timm-Giel, Andreas},
-  title     = {Adaptive {LTE} Link Rate Model for {TCP} Performance Analysis},
-  booktitle = {Proc. IEEE VTC},
-  year      = {2011},
-  pages     = {1--5}
-}
-
-@inproceedings{arun2018,
-  author    = {Arun, Venkat and Balakrishnan, Hari},
-  title     = {Copa: Practical Delay-Based Congestion Control for the Internet},
-  booktitle = {Proc. USENIX NSDI},
-  year      = {2018},
-  pages     = {329--342}
-}
+%% ── Fairness / implementation ────────────────────────────────────────────────
 
 @article{jain1984,
   author  = {Jain, Raj and Chiu, Dah-Ming and Hawe, William},

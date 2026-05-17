@@ -25,8 +25,7 @@
 \author{
   \IEEEauthorblockN{Rajat Bhambani}
   \IEEEauthorblockA{
-    \textit{Department of Computer Science}\\
-    \textit{[University]}\\
+    \textit{Independent Research Contribution}\\
     bhambani.rajat@gmail.com
   }
 }
@@ -54,7 +53,7 @@ Implemented in picoquic and evaluated in a zero-loss shared-link simulator
 across all six pairwise LEO/MEO/GEO transitions at three handover times and
 seven advance lead times, BBR-SAT converges to 90\% of new-orbit capacity
 in 2.5\,s for the critical LEO$\to$GEO transition --- the only evaluated
-mechanism to converge at any lead time from 0 to 20\,s ---
+mechanism to converge on this transition at any lead time from 0 to 20\,s ---
 while reducing peak queue occupancy by $36\times$ relative to vanilla BBRv3.
 Fairness analysis shows that BBR-SAT co-exists equitably with competing
 BBRv3 flows (Jain $J = 0.997$) and neither worsens nor repairs the
@@ -70,7 +69,8 @@ multi-orbit networks, LEO, GEO
 \section{Introduction}
 \label{sec:intro}
 
-The deployment of large LEO constellations (Starlink, OneWeb, Amazon Kuiper)
+The deployment of large LEO constellations (Starlink, OneWeb, Amazon
+Kuiper)~\cite{handley2018delay,bhattacherjee2019}
 alongside legacy MEO (O3b mPOWER) and GEO (ViaSat-3) infrastructure has
 created a new class of network event: the \emph{inter-orbit handover}, in
 which an active transport connection migrates between satellite beams
@@ -85,7 +85,7 @@ Because the GEO BDP (10\,Mbps$\times$580\,ms\,=\,725\,KB) exceeds the
 LEO BDP (50\,Mbps$\times$50\,ms\,=\,312\,KB), the \emph{new} orbit requires
 a \emph{larger} inflight window --- but at a \emph{much lower} pacing rate.
 
-Modern QUIC stacks running BBRv3~\cite{cardwell2017} are particularly
+Modern QUIC stacks running BBRv3~\cite{cardwell2026bbr} are particularly
 poorly suited to absorb this transition.
 BBRv3's two-cycle \texttt{MaxBwFilter} requires approximately
 $8 \times \mathrm{RTT}_\mathrm{new}$ to clear its pre-handover bandwidth
@@ -107,82 +107,92 @@ a proactive queue drain aligned with the current (pre-handover) RTT,
 followed by an instantaneous BDP context switch that seeds the post-handover
 pacing rate and congestion window directly from a per-orbit parameter table.
 
-This paper makes the following contributions:
-\begin{itemize}
-  \item The BBR-SAT algorithm: two new signals, an orbit parameter table,
-        and a two-phase handover protocol integrated into BBRv3 with
-        $<$100 lines of new state and signal-handling code (\S\ref{sec:design}).
-  \item A zero-loss, shared-link QUIC simulator (picoquic-based) covering
-        all six pairwise orbit transitions at three handover times and
-        six lead times (\S\ref{sec:methodology}).
-  \item Empirical demonstration that BBR-SAT is the only evaluated mechanism
-        to converge at the critical LEO$\to$GEO transition for lead times
-        spanning zero to twenty seconds (\S\ref{sec:exp1}).
-  \item Fairness characterisation showing that advance knowledge does not
-        translate into a bandwidth advantage over uninformed competing flows
-        (\S\ref{sec:fairness}).
-\end{itemize}
+This paper contributes: (1) the BBR-SAT algorithm --- two new signals,
+an orbit parameter table, and a two-phase handover protocol integrated
+into BBRv3 in $<$100 lines (\S\ref{sec:design}); (2) a zero-loss
+shared-link simulator spanning all six pairwise orbit transitions at
+three handover times and six lead times (\S\ref{sec:methodology});
+and (3) empirical demonstration that BBR-SAT is the only evaluated
+mechanism to converge at the critical LEO$\to$GEO transition across
+lead times 0--20\,s, with fairness results confirming that advance
+knowledge does not translate into a bandwidth advantage
+(\S\S\ref{sec:exp1}--\ref{sec:fairness}).
 
 % ── II. Background and Related Work ───────────────────────────────────────────
 \section{Background and Related Work}
 \label{sec:related}
 
-\subsection{BBRv3 Overview}
+\subsection{BBRv3 Filter Mechanics}
 
-BBR (Bottleneck Bandwidth and RTT)~\cite{cardwell2017} is a model-based
-congestion-control algorithm that drives the sender at the estimated
-available bandwidth (\texttt{bw}) using a pacing rate and an inflight
-ceiling derived from the path BDP.
-BBRv3, the current revision, maintains three key long-term state variables:
-\texttt{bw\_hi} (long-term delivery-rate ceiling, updated on loss events),
-\texttt{min\_rtt} (minimum RTT sampled over a 10-second window), and
-\texttt{inflight\_hi} (long-term inflight limit, updated on loss signals).
-A separate two-slot windowed maximum filter (\texttt{MaxBwFilter}) tracks
-the short-term peak delivery rate over the last two ProbeBW cycles.
-The algorithm cycles through four ProbeBW sub-states ---
-DOWN, CRUISE, REFILL, UP --- to probe for spare capacity while maintaining
-a near-full pipe.
+BBR~\cite{cardwell2016bbr} drives the sender at the estimated bottleneck
+bandwidth using two long-term filters.
+The \texttt{MaxBwFilter} is a two-slot windowed maximum over the last two
+ProbeBW cycles; each cycle spans $\sim$4\,RTTs, so on a GEO link
+(RTT\,$\approx$\,580\,ms) clearing a stale pre-handover estimate takes
+$8 \times 580 \approx 4{,}640$\,ms.
+The \texttt{min\_rtt} filter holds the minimum observed RTT over a
+10-second window; a LEO$\to$GEO transition (50$\to$580\,ms) leaves the
+sender calibrated to the wrong path delay for up to 10\,s.
+BBRv3~\cite{cardwell2026bbr} adds \texttt{bw\_hi} (long-term
+delivery-rate ceiling) and \texttt{inflight\_hi} (loss-driven inflight
+limit), neither of which adapts on the timescale of a beam switch.
 
-The critical weakness on abrupt downward transitions is the
-\texttt{MaxBwFilter}: a two-slot windowed max spanning two complete ProbeBW
-cycles, each lasting $\sim$4\,$\mathrm{RTT}_\mathrm{new}$, means the pacing
-rate remains calibrated to the old orbit for approximately
-$8 \times \mathrm{RTT}_\mathrm{new}$ after the beam switch.
+\subsection{Prior Work on Satellite Handover CCA}
 
-\subsection{Satellite TCP/QUIC Research}
+Five intra-LEO cross-layer mechanisms appeared in 2024--2025:
+StarQUIC~\cite{zhao2024starquic}, SATPIPE~\cite{zhao2025satpipe},
+LeoCC~\cite{lai2025leocc}, Creo~\cite{yan2025creo},
+and OrbCC~\cite{valentine2025orbcc}; Table~\ref{tab:related} summarises
+their signal and algorithmic approach.
+All operate within a single LEO constellation and none handle cross-orbit
+transitions between orbit classes with fundamentally different propagation
+regimes.
 
-Satellite transport has been an active area for two decades.
-Early work focused on high-BDP TCP performance:
-PEPs~\cite{caini2002}, Hybla~\cite{caini2004}, and
-selective ACK~\cite{Henderson2001} address GEO latency, but do not
-consider orbit-class transitions.
-More recent work on LEO QoS~\cite{bhattacherjee2019} and
-Starlink~\cite{michel2022} characterises path dynamics but does not modify
-the transport layer.
-QUIC performance over satellite has been examined in~\cite{kuhn2020},
-where the authors identify BDP mismatch as the primary performance limiter;
-BBR-SAT directly addresses this for the handover case.
+At the IETF, Lai et al.~\cite{lai2026lsncc} (draft-lai-ccwg-lsncc-01)
+define the \emph{Path Phase Boundary} (PPB): an advisory signal that
+path conditions may have changed discontinuously.
+PPB is reactive, parameter-free, and CCA-agnostic --- it identifies the
+problem but prescribes no algorithmic response.
+Careful Resume~\cite{kuhn2025carefulresume} (draft-ietf-tsvwg-careful-resume-24)
+caches one (cwnd, RTT) observation per remote endpoint for fast connection
+startup, but does not re-engage mid-connection.
+Its only satellite evaluation tests CUBIC, not BBR~\cite{hofstatter2025crsat}.
 
-The handover problem in mobile networks has been studied for LTE/5G
-(\cite{makris2019} and references therein), but cellular handovers involve
-a fundamentally different link-layer mechanism (soft handoff, X2 interface)
-and a much smaller BDP step.
-Satellite orbit handovers impose the largest BDP ratio of any
-non-path-failure transition visible to an end-to-end transport protocol.
+BBR-SAT is motivated by the PPB problem statement but differs structurally:
+it fires \emph{before} the event (predictive), carries the target orbit
+class (parameterized), and triggers a specific BBRv3 state-machine response
+(BDP context switch).
+The defining gap it fills --- cross-orbit mid-connection BDP switching ---
+is absent from all prior work.
 
-\subsection{Congestion Control for Handovers}
+\begin{table}[t]
+\centering
+\caption{Satellite handover CCA mechanisms}
+\label{tab:related}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccl}
+\toprule
+Mechanism & Mid-Conn? & Cross-Orbit? & Signal \\
+\midrule
+PPB~\cite{lai2026lsncc}                       & reactive & No  & ICMP probe \\
+Careful Resume~\cite{kuhn2025carefulresume}   & No       & No  & cached obs.\ \\
+StarQUIC~\cite{zhao2024starquic}              & Yes      & No  & 15-s sched.\ \\
+SATPIPE~\cite{zhao2025satpipe}                & Yes      & No  & NTP sched.\ \\
+LeoCC~\cite{lai2025leocc}                     & Yes      & No  & ICMP probe \\
+Creo~\cite{yan2025creo}                       & Yes      & No  & cross-layer \\
+OrbCC~\cite{valentine2025orbcc}               & Yes      & No  & INT \\
+\textbf{BBR-SAT}                              & Yes      & \textbf{Yes} & eph./INT/probe \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Gettys and Nichols~\cite{gettys2012} identify the interaction of large
-buffers with slow congestion-control convergence (bufferbloat), which
-is precisely the failure mode BBR-SAT targets.
-Sprout~\cite{winstein2013} and Verus~\cite{zaki2015} use explicit link
-models, but require continuous per-link training and are not designed for
-discrete orbit transitions.
-Copa~\cite{arun2018} uses a target delay-gradient formulation and converges
-faster than BBR on delay spikes, but does not use out-of-band handover
-signals.
-To our knowledge, BBR-SAT is the first algorithm to integrate satellite-operator
-ephemeris signals directly into the BBRv3 state machine.
+Legacy work addressed GEO-specific impairments: PEPs and
+Hybla~\cite{caini2004hybla} improve TCP on high-latency links;
+characterisation of LEO paths~\cite{bhattacherjee2019,michel2022starlink}
+documents the dynamics that make inter-orbit transitions damaging.
+RFC 9743/BCP~133~\cite{duke2025rfc9743} mandates fairness evaluation for
+any new CCA; \S\ref{sec:fairness} satisfies this.
 
 % ── III. System Design ────────────────────────────────────────────────────────
 \section{BBR-SAT Design}
@@ -267,16 +277,6 @@ orbit's capacity within one RTT of the CONFIRMED signal, rather than
 the $8 \times \mathrm{RTT}_\mathrm{new}$ required for natural BBRv3
 filter convergence.
 
-\subsection{Orbit Table Invariants}
-
-The 10-second \texttt{min\_rtt} expiry window (\texttt{BBRMinRTTFilterLen})
-inherited from BBRv3 applies to orbit-table entries as well.
-An entry seeded during startup will expire if the handover fires more
-than 10\,s after the entry was last refreshed.
-This is the root cause of the T=120\,s failure observed in
-\S\ref{sec:exp1}; a production implementation would refresh the table
-entry during the PREDICTED window.
-
 % ── IV. Methodology ───────────────────────────────────────────────────────────
 \section{Methodology}
 \label{sec:methodology}
@@ -344,8 +344,8 @@ B3 and B4 are common heuristics proposed informally in the satellite
 operator community; CUBIC serves as a loss-driven convergence reference.
 In our prototype, PREDICTED and CONFIRMED signals are injected at the
 application layer via picoquic's \texttt{alg\_notify} callback;
-a production deployment would carry them in a QUIC DATAGRAM frame or
-operator-defined transport parameter.
+a production deployment would carry them in a QUIC DATAGRAM
+frame~\cite{pauly2022rfc9221} or operator-defined transport parameter.
 
 \subsection{Experiment Parameters}
 
@@ -405,7 +405,7 @@ and the 90\% threshold is never reached within the 60-second window.
 The root cause is that BBRv3 retains its LEO-calibrated bandwidth estimate
 after handover.
 Because BBRv3's two-cycle \texttt{MaxBwFilter} clears only after roughly
-$8 \times \mathrm{RTT}_\mathrm{GEO} \approx 5$\,s~\cite{cardwell2017},
+$8 \times \mathrm{RTT}_\mathrm{GEO} \approx 5$\,s~\cite{cardwell2026bbr},
 the sender continues pacing at $\approx$50\,Mbps into a 10\,Mbps pipe,
 sustaining a queue that grows without bound at the simulation's buffer limit.
 
@@ -450,6 +450,10 @@ two to three 580\,ms GEO RTTs.
 Although CUBIC achieves slightly higher single-flow throughput than
 BBR-SAT (at the cost of a 1.3\,MB peak queue versus 910\,KB), its
 behaviour under competition is discussed in \S\ref{sec:fairness}.
+For single-flow bulk transfer, CUBIC's loss-driven convergence is
+competitive; BBR-SAT's advantage lies in mixed-CCA deployments where
+BBRv3 flows must coexist fairly on a shared beam --- the common
+operational scenario for multi-orbit gateway links.
 
 \begin{table}[t]
 \centering
@@ -603,6 +607,10 @@ At $t = 30$\,s BBR-SAT re-applies its stored GEO BDP context
 \texttt{min\_rtt}, and \texttt{inflight\_hi} to the seeded values),
 causing a brief throughput dip visible in both flows as the Jain's trace
 dips below 0.8.
+This occurs because BBR-SAT's measured \texttt{bw\_hi} after 30\,s of
+GEO operation has been probed above the seeded ceiling; the context
+switch resets it to the conservative ephemeris value, temporarily
+clipping the pacing rate until ProbeBW re-probes.
 After $t \approx 39$\,s both flows reach a stable regime:
 BBR-SAT 3.4\,Mbps, CUBIC 6.2\,Mbps, $J = 0.888$.
 The 64/36 split is consistent across both runs (run-to-run $\sigma < 0.2$\,Mbps).
@@ -616,7 +624,7 @@ while CUBIC takes the remaining $\approx7.8$\,Mbps.
 Notably, this imbalance is already present on LEO \emph{before} the
 handover (CUBIC $\approx 37$\,Mbps vs.\ BBR-SAT $\approx 12$\,Mbps on
 the shared 50\,Mbps LEO beam), confirming that the unfairness is
-inherited directly from BBRv3's known deference to CUBIC~\cite{cardwell2017}
+inherited directly from BBRv3's known deference to CUBIC~\cite{cardwell2026bbr}
 and is not introduced by the satellite extension.
 Longer lead times ($\ell = 20$\,s) marginally worsen the split
 ($J = 0.655$) because BBR-SAT's proactive queue drain at $\ell$\,s before
