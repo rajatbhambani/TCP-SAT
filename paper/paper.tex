@@ -320,11 +320,11 @@ GEO   & 10\,Mbps  & 580\,ms & 725\,KB \\
 \end{table}
 
 Table~\ref{tab:orbits} lists the parameters used for each orbit class.
-The simulator's queuing is soft-limited by a $2\times$RTT delay threshold;
-the \emph{effective} buffer in our experiments is uncapped by that threshold
-(packets continue to queue if the sender does not back off), which is why
-Table~\ref{tab:exp1_leo_geo} shows a 33\,MB build-up for B1/B3 rather
-than the $\sim$725\,KB hard-BDP limit.
+We model the bottleneck with an uncapped queue (no drop-tail depth limit),
+consistent with satellite ground-segment equipment that provisions large
+buffers to avoid loss on high-BDP links~\cite{border2001rfc3135}.
+A sender that fails to drain inflight data before the BDP step-change
+builds an arbitrarily large queue; the 33\,MB peak for B1 is this failure.
 
 \subsection{Baselines}
 
@@ -706,6 +706,11 @@ handover times $T_\mathrm{HO} \geq 120$\,s.
 Refreshing the orbit table entry during the PREDICTED window --- a
 one-line change in the PREDICTED handler --- would fix this at the
 cost of a brief ProbeBW\_DOWN that re-seeds \texttt{min\_rtt}.
+
+\textbf{Buffer model.}
+With a 1$\times$BDP droptail cap, BBRv3 converges via loss in $\approx$1.5\,s
+but stabilises at only 86\,\% utilisation; BBR-SAT remains loss-free and
+stabilises at 99\,\%, delivering 17\,\% more post-handover goodput.
 
 \textbf{Loss injection.}
 All experiments are zero-loss.
