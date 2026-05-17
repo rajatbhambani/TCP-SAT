@@ -1,0 +1,3 @@
+baseline,orbit_from,orbit_to,handover_time_s,lead_time_s,loss,n_runs,n_converged,t90_median_us,t90_p25_us,t90_p75_us,goodput_mean_bytes,goodput_ci95_bytes,peak_queue_median,ss_mean_bps,ss_stddev_bps
+0,0,2,30,5,0,10,10,1501040.0,1501040.0,1501040.0,57652219.0,0.0,764972.0,8580331.0,141583.0
+4,0,2,30,5,0,10,10,2500735.0,2500735.0,2500735.0,67764450.0,0.0,1019128.0,9903229.0,1052376.0
