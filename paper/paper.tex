@@ -455,6 +455,11 @@ competitive; BBR-SAT's advantage lies in mixed-CCA deployments where
 BBRv3 flows must coexist fairly on a shared beam --- the common
 operational scenario for multi-orbit gateway links.
 
+\textbf{Buffer sensitivity} ($N=10$, 1$\times$BDP droptail cap):
+CUBIC converges via loss in 0.5\,s at 102\,\% utilisation; BBRv3
+reaches 90\,\% in 1.5\,s but oscillates at 86\,\%; BBR-SAT converges
+loss-free in 2.5\,s at 99\,\%, delivering 17\,\% more goodput than BBRv3.
+
 \begin{table}[t]
 \centering
 \caption{LEO$\to$GEO, $T_\mathrm{HO}=30$\,s, $\ell=0$, no loss}
@@ -706,11 +711,6 @@ handover times $T_\mathrm{HO} \geq 120$\,s.
 Refreshing the orbit table entry during the PREDICTED window --- a
 one-line change in the PREDICTED handler --- would fix this at the
 cost of a brief ProbeBW\_DOWN that re-seeds \texttt{min\_rtt}.
-
-\textbf{Buffer model.}
-With a 1$\times$BDP droptail cap, BBRv3 converges via loss in $\approx$1.5\,s
-but stabilises at only 86\,\% utilisation; BBR-SAT remains loss-free and
-stabilises at 99\,\%, delivering 17\,\% more post-handover goodput.
 
 \textbf{Loss injection.}
 All experiments are zero-loss.
