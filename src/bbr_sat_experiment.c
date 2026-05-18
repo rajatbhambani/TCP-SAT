@@ -207,7 +207,8 @@ int bbr_sat_experiment_one(
     int      has_loss,
     uint64_t seed,
     int      run_id,
-    int      total_time_s)
+    int      total_time_s,
+    int      use_bdp_cap)
 {
     uint64_t simulated_time = 0;
     int ret = 0;
@@ -251,6 +252,10 @@ int bbr_sat_experiment_one(
     test_ctx->c_to_s_link->picosec_per_byte = (1000000ULL * 8) / from->ul_mbps;
     test_ctx->s_to_c_link->microsec_latency = from->latency_us;
     test_ctx->s_to_c_link->picosec_per_byte = (1000000ULL * 8) / from->dl_mbps;
+    /* 1×BDP droptail cap on bottleneck (upload) link: queue_delay_max = RTT = 2×one-way */
+    if (use_bdp_cap) {
+        test_ctx->c_to_s_link->queue_delay_max = from->latency_us * 2;
+    }
     test_ctx->stream0_flow_release = 1;
     test_ctx->immediate_exit = 1;
 
@@ -355,6 +360,10 @@ int bbr_sat_experiment_one(
             test_ctx->c_to_s_link->picosec_per_byte = (1000000ULL * 8) / to->ul_mbps;
             test_ctx->s_to_c_link->microsec_latency = to->latency_us;
             test_ctx->s_to_c_link->picosec_per_byte = (1000000ULL * 8) / to->dl_mbps;
+            /* Update 1×BDP droptail cap for target orbit */
+            if (use_bdp_cap) {
+                test_ctx->c_to_s_link->queue_delay_max = to->latency_us * 2;
+            }
 
             /* BBR-SAT Phase 2: CONFIRMED -- full BDP context switch.
              * Fires at actual link-switch time on the new path.
@@ -519,7 +528,7 @@ int bbr_sat_exp_b1_smoke_test(void)
     return bbr_sat_experiment_one(
         EXP_BASELINE_B1,
         BBR_SAT_ORBIT_LEO, BBR_SAT_ORBIT_GEO,
-        30, 0, 0, 42, 0, 90);
+        30, 0, 0, 42, 0, 90, 0);
 }
 
 /* BBR-SAT smoke test: LEO->GEO, handover at T=30s, 5s lead, no loss */
@@ -528,7 +537,7 @@ int bbr_sat_exp_bbrsat_smoke_test(void)
     return bbr_sat_experiment_one(
         EXP_BASELINE_BBRSAT,
         BBR_SAT_ORBIT_LEO, BBR_SAT_ORBIT_GEO,
-        30, 5, 0, 42, 0, 90);
+        30, 5, 0, 42, 0, 90, 0);
 }
 
 /* B3 smoke test: LEO->GEO, handover at T=30s, 5s lead, no loss */
@@ -537,7 +546,7 @@ int bbr_sat_exp_b3_smoke_test(void)
     return bbr_sat_experiment_one(
         EXP_BASELINE_B3,
         BBR_SAT_ORBIT_LEO, BBR_SAT_ORBIT_GEO,
-        30, 5, 0, 42, 0, 90);
+        30, 5, 0, 42, 0, 90, 0);
 }
 
 /* B4 smoke test: LEO->GEO, handover at T=30s, 5s lead, no loss */
@@ -546,7 +555,7 @@ int bbr_sat_exp_b4_smoke_test(void)
     return bbr_sat_experiment_one(
         EXP_BASELINE_B4,
         BBR_SAT_ORBIT_LEO, BBR_SAT_ORBIT_GEO,
-        30, 5, 0, 42, 0, 90);
+        30, 5, 0, 42, 0, 90, 0);
 }
 
 /*

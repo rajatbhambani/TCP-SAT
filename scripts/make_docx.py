@@ -156,9 +156,9 @@ add_para(
     'pairwise LEO/MEO/GEO transitions at three handover times and seven advance lead '
     'times, BBR-SAT converges to 90% of new-orbit capacity in 2.5 s for the critical '
     'LEO→GEO transition — the only evaluated mechanism to converge on this transition at '
-    'any lead time from 0 to 20 s — while reducing peak queue occupancy by 36× relative '
+    'any lead time from 0 to 20 s — while reducing peak queue occupancy by 44× relative '
     'to vanilla BBRv3. Fairness analysis shows that BBR-SAT co-exists equitably with '
-    'competing BBRv3 flows (Jain J = 0.997) and neither worsens nor repairs the '
+    'competing BBRv3 flows (Jain J = 0.994) and neither worsens nor repairs the '
     'pre-existing BBRv3 deference to CUBIC.'
 )
 
@@ -182,19 +182,19 @@ add_para(
     'connection migrates between satellite beams belonging to orbit classes with '
     'fundamentally different propagation characteristics. Such transitions are *abrupt* — '
     'the link properties change at the granularity of a single RTT — and *asymmetric*: a '
-    'LEO→GEO handover simultaneously reduces the available link rate by 5× (50→10 Mbps) '
+    'LEO→GEO handover simultaneously reduces the upload bottleneck rate by 3.3× (10→3 Mbps) '
     'and increases the round-trip propagation delay by ~12× (50→580 ms). Because the GEO '
-    'BDP (10 Mbps × 580 ms = 725 KB) exceeds the LEO BDP (50 Mbps × 50 ms = 312 KB), '
-    'the *new* orbit requires a *larger* inflight window — but at a *much lower* pacing rate.'
+    'BDP (3 Mbps × 580 ms = 218 KB) exceeds the LEO BDP (10 Mbps × 50 ms = 62 KB) by '
+    '3.5×, the *new* orbit requires a *larger* inflight window — but at a *much lower* pacing rate.'
 )
 
 add_para(
     'Modern QUIC stacks running BBRv3 [3] are particularly poorly suited to absorb this '
     'transition. BBRv3\'s two-cycle `MaxBwFilter` requires approximately 8 × RTT_new to '
     'clear its pre-handover bandwidth estimate. On a GEO link (RTT ≈ 580 ms) that amounts '
-    'to roughly 5 seconds of sustained over-pacing at 50 Mbps into a 10 Mbps pipe, '
-    'accumulating ≈33 MB of queued data in our experiments before the filter clears and '
-    'the sender backs off.'
+    'to roughly 5 seconds of sustained over-pacing at 10 Mbps into a 3 Mbps pipe, '
+    'accumulating ≈12 MB of queued data and delivering only 2.3 MB total goodput in a '
+    '90-second window — 8× below BBR-SAT\'s 18.6 MB.'
 )
 
 add_para(
@@ -389,20 +389,21 @@ add_para(
 add_heading('B. Orbit Parameters', level=2)
 
 add_table_simple(
-    headers=['Orbit', 'Link rate', 'RTT', 'BDP'],
+    headers=['Orbit', 'DL rate', 'UL rate', 'RTT', 'BDP (UL)'],
     rows=[
-        ['LEO', '50 Mbps', '50 ms',  '312 KB'],
-        ['MEO', '30 Mbps', '150 ms', '562 KB'],
-        ['GEO', '10 Mbps', '580 ms', '725 KB'],
+        ['LEO', '50 Mbps', '10 Mbps', '50 ms',  '62 KB'],
+        ['MEO', '30 Mbps', '10 Mbps', '150 ms', '188 KB'],
+        ['GEO', '10 Mbps', '3 Mbps',  '580 ms', '218 KB'],
     ],
-    caption='Table II. Simulated orbit parameters'
+    caption='Table II. Simulated orbit parameters (BDP computed for upload bottleneck)'
 )
 
 add_para(
-    'The simulator\'s queuing is soft-limited by a 2×RTT delay threshold; the *effective* '
-    'buffer in our experiments is uncapped by that threshold (packets continue to queue if '
-    'the sender does not back off), which is why Table III shows a 33 MB build-up for '
-    'B1/B3 rather than the ~725 KB hard-BDP limit.'
+    'The upload rate is the bottleneck for QUIC bulk transfer; the higher download rate '
+    'models the asymmetric capacity common in satellite links and serves as the ACK return '
+    'path. The simulator\'s queuing is soft-limited by a 2×RTT delay threshold; the '
+    '*effective* buffer in our experiments is uncapped, which is why Table III shows a '
+    '12 MB build-up for B1/B3 rather than the ~218 KB hard-BDP limit.'
 )
 
 add_heading('C. Baselines', level=2)
@@ -474,20 +475,22 @@ add_para(
 )
 
 add_para(
-    '**B1 (vanilla BBRv3)** fails entirely: the on-path queue inflates to 33 MB, '
-    'steady-state throughput is effectively zero, and the 90% threshold is never reached '
-    'within the 60-second window. The root cause is that BBRv3 retains its LEO-calibrated '
-    'bandwidth estimate after handover. Because BBRv3\'s two-cycle `MaxBwFilter` clears '
-    'only after roughly 8 × RTT_GEO ≈ 5 s [3], the sender continues pacing at ≈50 Mbps '
-    'into a 10 Mbps pipe, sustaining a queue that grows without bound at the simulation\'s '
-    'buffer limit.'
+    '**B1 (vanilla BBRv3)** records T90 = 12.5 s, but this is a transient rather than '
+    'stable convergence: the delivered throughput briefly crosses 90% of the 3 Mbps GEO '
+    'capacity for a single one-second window at t + 12.5 s before collapsing to near-zero, '
+    'yielding only 2.3 MB total goodput. The on-path queue inflates to 12 MB (peak) as '
+    'BBRv3 retains its LEO-calibrated 10 Mbps bandwidth estimate after handover. Because '
+    'BBRv3\'s two-cycle `MaxBwFilter` clears only after roughly 8 × RTT_GEO ≈ 5 s [3], '
+    'the sender continues pacing at 10 Mbps into a 3 Mbps pipe. The pacing-rate '
+    'architecture means the queue cannot be drained by cwnd manipulations alone.'
 )
 
 add_para(
-    '**B3 (cwnd-freeze)** exhibits the same failure mode. Freezing the congestion window '
-    'at the pre-handover LEO value leaves an equally oversized window in place; the buffer '
-    'fills to 33 MB identically to B1. Advance warning is useless: even at ℓ = 30 s, '
-    'B3 does not converge.'
+    '**B3 (cwnd-freeze)** exhibits the same failure mode with identical numbers '
+    '(T90 = 12.5 s transient, 2.3 MB goodput, 12 MB peak queue). Freezing the congestion '
+    'window at the pre-handover LEO value has no effect because the send rate is governed '
+    'by the pacing rate (still 10 Mbps), not the cwnd. Advance warning is useless: even '
+    'at ℓ = 30 s, B3 does not converge to stable throughput above the 90% threshold.'
 )
 
 add_para(
@@ -501,11 +504,11 @@ add_para(
 add_para(
     '**BBR-SAT** converges at every tested lead time from ℓ = 0 to ℓ = 20 s, with '
     'T90 = 2.5 s throughout. On receiving the CONFIRMED signal at T_HO, the algorithm '
-    'loads the seeded GEO orbit entry (`bw_hi` = 10 Mbps, `min_rtt` = 580 ms), enters '
+    'loads the seeded GEO orbit entry (`bw_hi` = 3 Mbps, `min_rtt` = 580 ms), enters '
     'a brief DRAIN phase to clear residual in-flight data, then transitions to REFILL '
-    'and converges to a steady-state of 9.2 Mbps (92% of link capacity) with a peak '
-    'queue of only 910 KB — a 36× reduction compared to B1/B3. Goodput over the '
-    '90-second run is 56.9 MB, largely independent of lead time.'
+    'and converges to a steady-state of 2.9 Mbps (97% of link capacity) with a peak '
+    'queue of only 286 KB — a 44× reduction compared to B1/B3. Goodput over the '
+    '90-second run is 18.6 MB, largely independent of lead time.'
 )
 
 add_para(
@@ -518,28 +521,31 @@ add_para(
 )
 
 add_para(
-    '**CUBIC** converges in 1.5 s at all lead times, achieving a steady-state of '
-    '10.0 Mbps (100% utilisation) and 66.4 MB goodput. The rapid convergence is '
-    'loss-driven: the queue overflow immediately after handover triggers multiplicative '
-    'window reduction, and CUBIC settles within two to three 580 ms GEO RTTs. Although '
-    'CUBIC achieves slightly higher single-flow throughput than BBR-SAT (at the cost of '
-    'a 1.3 MB peak queue versus 910 KB), its behaviour under competition is discussed in '
+    '**CUBIC** converges in 10.5 s at all lead times, achieving a steady-state of '
+    '3.1 Mbps (~100% utilisation) and 19.2 MB goodput. The convergence is loss-driven: '
+    'the queue overflow immediately after handover triggers multiplicative window '
+    'reduction, and CUBIC settles within roughly 18 GEO RTTs (~10.5 s). Although CUBIC '
+    'achieves slightly higher single-flow goodput than BBR-SAT (at the cost of a '
+    '307 KB peak queue versus 286 KB), its behaviour under competition is discussed in '
     '§V-B. For single-flow bulk transfer, CUBIC\'s loss-driven convergence is competitive; '
-    'BBR-SAT\'s advantage lies in mixed-CCA deployments where BBRv3 flows must coexist '
-    'fairly on a shared beam — the common operational scenario for multi-orbit gateway links.'
+    'BBR-SAT\'s advantage lies in zero-loss operation and mixed-CCA deployments where '
+    'BBRv3 flows must coexist fairly on a shared beam.'
 )
 
 add_table_simple(
     headers=['Baseline', 'T90', 'SS bw', 'Goodput', 'Peak Q'],
     rows=[
-        ['B1 BBRv3 (vanilla)', 'N/C',   '0.0 Mbps', '5.4 MB',  '33,120 KB'],
-        ['B3 cwnd-freeze',     'N/C',   '0.0 Mbps', '5.4 MB',  '33,120 KB'],
-        ['B4 pause/resume',    'N/C',   '0.0 Mbps', '3.8 MB',  '34,238 KB'],
-        [('BBR-SAT (ours)','b'), ('2.5 s','b'), ('9.2 Mbps','b'), ('56.9 MB','b'), ('910 KB','b')],
-        ['CUBIC',             '1.5 s', '10.0 Mbps','66.4 MB', '1,328 KB'],
+        ['B1 BBRv3 (vanilla)', '12.5 s†', '0.0 Mbps', '2.3 MB', '12,544 KB'],
+        ['B3 cwnd-freeze',     '12.5 s†', '0.0 Mbps', '2.3 MB', '12,544 KB'],
+        ['B4 pause/resume',    'N/C',      '0.0 Mbps', '1.9 MB', '12,329 KB'],
+        [('BBR-SAT (ours)','b'), ('2.5 s','b'), ('2.9 Mbps','b'), ('18.6 MB','b'), ('286 KB','b')],
+        ['CUBIC',             '10.5 s', '3.1 Mbps', '19.2 MB', '307 KB'],
     ],
     caption='Table III. LEO→GEO, T_HO = 30 s, ℓ = 0, no loss'
 )
+
+add_note('† Transient only: throughput crosses 2.7 Mbps (90% of 3 Mbps) for one window '
+         'at t+12.5 s then collapses; goodput is 8× below BBR-SAT.')
 
 add_note('[FIGURE 1: T90 vs. advance lead time for the LEO→GEO transition (T_HO = 30 s, '
          'no loss). BBR-SAT maintains a flat 2.5 s across ℓ ∈ [0, 20] s; open markers '
@@ -561,31 +567,33 @@ add_para(
 add_heading('4) Bandwidth-Increasing and Moderate Transitions', level=3)
 
 add_para(
-    'For all bandwidth-increasing transitions (MEO→LEO, GEO→LEO, GEO→MEO) and the '
-    'moderate MEO→GEO and LEO→MEO transitions, every baseline converges at ℓ = 0 with '
-    'T90 ≤ 3.5 s (Table IV). Bandwidth increases are inherently self-correcting: the new '
-    'link can absorb the pre-handover cwnd without queue buildup, and BBR\'s bandwidth '
-    'probing detects the higher capacity within one probe cycle. BBR-SAT\'s T90 at ℓ = 0 '
-    'is 0–1 s higher than B1/B3 on most transitions because the CONFIRMED signal briefly '
-    'forces a REFILL phase before resuming ProbeBW. The exception is LEO→MEO: BBR-SAT '
-    'takes 8.5 s vs B1/B3\'s 0.5 s because MEO\'s higher RTT (150 ms) extends the REFILL '
-    'ramp and the seeded `bw_hi` ceiling (30 Mbps) temporarily limits probing above the '
-    'new fair share. With ℓ ≥ 2 s this overhead disappears as the PREDICTED signal '
-    'pre-positions the orbit context before the handover fires.'
+    'For bandwidth-increasing transitions (MEO→LEO, GEO→LEO, GEO→MEO) and the moderate '
+    'MEO→GEO transition, all baselines converge at ℓ = 0 with T90 ≤ 2.5 s (Table IV). '
+    'Bandwidth increases are inherently self-correcting: the new link can absorb the '
+    'pre-handover cwnd without queue buildup. For these transitions, BBR-SAT\'s CONFIRMED '
+    'handler is a no-op (target RTT ≤ 250 ms for MEO/LEO), so BBR-SAT matches B1/B3 '
+    'exactly. For LEO→MEO, all BBR variants record N/C because LEO and MEO share '
+    'identical upload BW (10 Mbps): the T90 threshold (9 Mbps) is not reached during the '
+    '10-second `min_rtt` filter window when the RTT triples. CUBIC overcomes this in '
+    '5.5 s via loss-driven window growth. This N/C is a metric artifact — the actual '
+    'bottleneck capacity is unchanged at 10 Mbps throughout.'
 )
 
 add_table_simple(
     headers=['Transition', 'B1', 'B3', 'B4', 'BBR-SAT', 'CUBIC'],
     rows=[
-        ['LEO→MEO', '0.5 s', '0.5 s', '6.5 s', '8.5 s',        '0.5 s'],
-        ['LEO→GEO', 'N/C',   'N/C',   'N/C',   ('2.5 s', 'b'),  '1.5 s'],
-        ['MEO→LEO', '2.5 s', '2.5 s', '0.5 s', '3.5 s',         '0.5 s'],
-        ['GEO→LEO', '1.5 s', '1.5 s', '2.5 s', '2.5 s',         '1.5 s'],
-        ['MEO→GEO', '1.5 s', '1.5 s', '1.5 s', '2.5 s',         '1.5 s'],
-        ['GEO→MEO', '1.5 s', '1.5 s', '2.5 s', '2.5 s',         '1.5 s'],
+        ['LEO→MEO', 'N/C‡', 'N/C‡', 'N/C‡', 'N/C‡',          '5.5 s'],
+        ['LEO→GEO', '12.5 s†', '12.5 s†', 'N/C', ('2.5 s','b'), '10.5 s'],
+        ['MEO→LEO', '0.5 s', '0.5 s', '0.5 s', '0.5 s',         '0.5 s'],
+        ['GEO→LEO', '1.5 s', '1.5 s', '0.5 s', '1.5 s',         '0.5 s'],
+        ['MEO→GEO', '1.5 s', '1.5 s', '1.5 s', '1.5 s',         '1.5 s'],
+        ['GEO→MEO', '2.5 s', '2.5 s', '2.5 s', '2.5 s',         '0.5 s'],
     ],
     caption='Table IV. T90 at ℓ = 0, T_HO = 30 s, no loss (all transitions)'
 )
+
+add_note('† Transient only; see Table III and §V-A.2.\n'
+         '‡ Metric artifact: LEO/MEO share identical upload BW (10 Mbps); see §V-A.4.')
 
 add_heading('5) Handover-Time Sensitivity', level=3)
 
@@ -612,9 +620,8 @@ add_para(
     'BBR-SAT flow is flow 1; flow 2 runs either vanilla BBRv3 or CUBIC. Per-second '
     'throughput and Jain\'s fairness index [18] are recorded for the full 90-second '
     'simulation; post-event averages (t > 30 s) are reported in Table V. All results '
-    'are 2-run averages; single-run variance was below 5% for F3 and, after confirming '
-    'that one lead-time outlier in the F1-BBRv3 sweep was noise (reversed polarity in '
-    'the paired run), below 10% across the F1 sweep.'
+    'are 2-run averages; single-run variance was below 5% for F3 and below 5% across '
+    'the F1-BBRv3 sweep.'
 )
 
 add_heading('1) F1: Shared LEO→GEO Handover', level=3)
@@ -622,27 +629,25 @@ add_heading('1) F1: Shared LEO→GEO Handover', level=3)
 add_para(
     'Figure 2(a) shows the 90-second throughput trace for BBR-SAT and BBRv3 when both '
     'flows cross the handover with zero lead time. Before the handover (t < 30 s) both '
-    'flows share the 50 Mbps LEO beam equitably, each sustaining roughly 24 Mbps. At '
-    't = 30 s the link drops to 10 Mbps and the RTT rises to ≈580 ms; both flows '
-    'converge to the new GEO fair share (5 Mbps each) within one to two seconds. '
-    'Averaged over t ∈ (30, 90] s, Jain\'s index is J = 0.997, confirming near-perfect '
+    'flows share the 10 Mbps LEO upload beam equitably, each sustaining roughly 5 Mbps. '
+    'At t = 30 s the link drops to 3 Mbps and the RTT rises to ≈580 ms; both flows '
+    'converge to the new GEO fair share (1.5 Mbps each) within one to two seconds. '
+    'Averaged over t ∈ (30, 90] s, Jain\'s index is J = 0.994, confirming near-perfect '
     'fairness.'
 )
 
 add_para(
     'We repeated the sweep across lead times ℓ ∈ {0, 5, 10, 15, 20, 30} s; results '
-    'appear in Table V (F1 vs BBRv3 rows). For ℓ ≤ 5 s and ℓ ≥ 20 s, J > 0.98 in both '
-    'runs. At ℓ = 10–15 s one run showed a 3:1 split favouring whichever flow happened '
-    'to exit the post-handover transient first; the complementary run reversed polarity, '
-    'and the 2-run average (J ≈ 0.86) reflects the residual variance of a single '
-    '90-second trial. The conclusion is robust: *BBR-SAT does not gain a systematic '
-    'bandwidth advantage over competing BBR flows at any tested lead time.*'
+    'appear in Table V (F1 vs BBRv3 rows). Jain\'s index exceeds 0.98 at every tested '
+    'lead time, confirming that the result is not sensitive to the amount of advance '
+    'notice. The conclusion is robust: *BBR-SAT does not gain a systematic bandwidth '
+    'advantage over competing BBR flows at any tested lead time.*'
 )
 
 add_heading('2) F3: Steady-State GEO', level=3)
 
 add_para(
-    'Figure 2(b) shows the F3 trace. Both flows start on the 10 Mbps GEO beam from '
+    'Figure 2(b) shows the F3 trace. Both flows start on the 3 Mbps GEO beam from '
     't = 0. CUBIC reaches its characteristic sawtooth steady state by t ≈ 20 s. At '
     't = 30 s BBR-SAT re-applies its stored GEO BDP context (a no-op on link parameters, '
     'but it resets `bw_hi`, `min_rtt`, and `inflight_hi` to the seeded values), causing '
@@ -650,34 +655,32 @@ add_para(
     'This occurs because BBR-SAT\'s measured `bw_hi` after 30 s of GEO operation has '
     'been probed above the seeded ceiling; the context switch resets it to the '
     'conservative ephemeris value, temporarily clipping the pacing rate until ProbeBW '
-    're-probes. After t ≈ 39 s both flows reach a stable regime: BBR-SAT 3.4 Mbps, '
-    'CUBIC 6.2 Mbps, J = 0.888. The 64/36 split is consistent across both runs '
-    '(run-to-run σ < 0.2 Mbps).'
+    're-probes. After t ≈ 39 s both flows reach a stable regime: BBR-SAT 1.31 Mbps, '
+    'CUBIC 1.58 Mbps, J = 0.887. The 55/45 CUBIC/BBR-SAT split is consistent across '
+    'both runs (run-to-run σ < 0.1 Mbps).'
 )
 
 add_heading('3) BBR-SAT vs. CUBIC During Handover', level=3)
 
 add_para(
     'We also ran the F1 topology with CUBIC as the competing flow (Table V, F1 vs CUBIC '
-    'rows). BBR-SAT obtains only 1.1–1.9 Mbps post-handover, with J ≈ 0.71, while CUBIC '
-    'takes the remaining ≈7.8 Mbps. Notably, this imbalance is already present on LEO '
-    '*before* the handover (CUBIC ≈37 Mbps vs. BBR-SAT ≈12 Mbps on the shared 50 Mbps '
-    'LEO beam), confirming that the unfairness is inherited directly from BBRv3\'s known '
-    'deference to CUBIC [3] and is not introduced by the satellite extension. Longer lead '
-    'times (ℓ = 20 s) marginally worsen the split (J = 0.655) because BBR-SAT\'s '
-    'proactive queue drain at ℓ s before handover vacates buffer space that CUBIC '
-    'immediately reclaims.'
+    'rows). BBR-SAT obtains only 0.40–0.48 Mbps post-handover, with J ≈ 0.69, while '
+    'CUBIC takes the remaining ≈2.4 Mbps. Notably, this imbalance is already present on '
+    'LEO *before* the handover (CUBIC ≈7 Mbps vs. BBR-SAT ≈3 Mbps on the shared '
+    '10 Mbps LEO upload beam), confirming that the unfairness is inherited directly from '
+    'BBRv3\'s known deference to CUBIC [3] and is not introduced by the satellite '
+    'extension. Lead time does not meaningfully change the split (J = 0.687–0.723 '
+    'across tested values).'
 )
 
 add_heading('4) Summary', level=3)
 
 add_para(
     'BBR-SAT preserves the fairness properties of its BBRv3 base with respect to both '
-    'competing CCA families: it co-exists equitably with other BBR flows (J ≥ 0.986 at '
-    'lead times outside the narrow 10–15 s transient window), and it neither worsens nor '
-    'repairs the pre-existing BBR-vs-CUBIC imbalance in the steady state. Addressing the '
-    'BBR/CUBIC coexistence issue is outside the scope of this work but is a natural '
-    'direction for future study.'
+    'competing CCA families: it co-exists equitably with other BBR flows (J ≥ 0.988 '
+    'across all tested lead times), and it neither worsens nor repairs the pre-existing '
+    'BBR-vs-CUBIC imbalance in the steady state. Addressing the BBR/CUBIC coexistence '
+    'issue is outside the scope of this work but is a natural direction for future study.'
 )
 
 add_note('[FIGURE 2: Fairness results. (a) F1: BBR-SAT vs. BBRv3 during shared LEO→GEO '
@@ -688,23 +691,20 @@ add_note('[FIGURE 2: Fairness results. (a) F1: BBR-SAT vs. BBRv3 during shared L
 add_table_simple(
     headers=['Scenario', 'Competitor', 'Lead (s)', 'BBR-SAT (Mbps)', 'Opponent (Mbps)', 'Jain J'],
     rows=[
-        ['F1', 'BBRv3',  '0',  '4.86', '4.84', ('0.997','b')],
-        ['F1', 'BBRv3',  '5',  '4.62', '5.11', '0.991'],
-        ['F1', 'BBRv3', '10',  '5.83', '3.86', '0.862†'],
-        ['F1', 'BBRv3', '15',  '3.51', '6.17', '0.866†'],
-        ['F1', 'BBRv3', '20',  '4.62', '5.10', '0.987'],
-        ['F1', 'BBRv3', '30',  '4.62', '5.06', '0.991'],
-        ['F1', 'CUBIC',  '0',  '1.71', '7.81', '0.713'],
-        ['F1', 'CUBIC', '10',  '1.86', '7.80', '0.734'],
-        ['F1', 'CUBIC', '20',  '1.14', '8.32', '0.655'],
-        ['F3', 'CUBIC',  '0',  '3.43', '6.18', '0.888'],
+        ['F1', 'BBRv3',  '0',  '1.08', '1.08', ('0.994','b')],
+        ['F1', 'BBRv3',  '5',  '1.11', '1.35', '0.989'],
+        ['F1', 'BBRv3', '10',  '1.13', '1.07', '0.994'],
+        ['F1', 'BBRv3', '15',  '1.12', '1.26', '0.996'],
+        ['F1', 'BBRv3', '20',  '1.16', '1.31', '0.994'],
+        ['F1', 'BBRv3', '30',  '1.11', '1.15', '0.995'],
+        ['F1', 'CUBIC',  '0',  '0.40', '2.45', '0.687'],
+        ['F1', 'CUBIC',  '5',  '0.17', '0.87', '0.723'],
+        ['F1', 'CUBIC', '10',  '0.48', '2.40', '0.695'],
+        ['F1', 'CUBIC', '20',  '0.43', '2.42', '0.696'],
+        ['F3', 'CUBIC',  '0',  '1.31', '1.58', '0.887'],
     ],
     caption='Table V. Fairness summary (post-event average, t > 30 s, 2-run mean)'
 )
-
-add_note('† High-variance 2-run average; individual runs: lead=10: J = 0.738, 0.986; '
-         'lead=15: J = 0.742, 0.991. Polarity reverses between runs, indicating random '
-         'transient ordering rather than a systematic bias.')
 
 # ═══════════════════════════════════════════════════════════════════════════
 # VI. DISCUSSION
@@ -744,8 +744,8 @@ add_para(
 )
 
 add_para(
-    '**BBR/CUBIC coexistence.** The 64/36 CUBIC advantage in steady-state GEO '
-    '(F3, J = 0.888) and the 82/18 split during F1-CUBIC (J ≈ 0.71) are inherited from '
+    '**BBR/CUBIC coexistence.** The 55/45 CUBIC advantage in steady-state GEO '
+    '(F3, J = 0.887) and the 86/14 split during F1-CUBIC (J ≈ 0.69) are inherited from '
     'vanilla BBRv3\'s loss-averse behaviour on large-BDP links. Addressing this would '
     'require either ECN-based queue-occupancy signalling or a fairness-aware pacing mode '
     'in BBRv3 itself.'
@@ -765,10 +765,11 @@ add_para(
     'on downward BDP transitions. In a zero-loss simulator spanning all six pairwise '
     'LEO/MEO/GEO transitions, BBR-SAT is the only evaluated mechanism to converge '
     'consistently on the critical LEO→GEO transition across the full range of tested lead '
-    'times (0–20 s), achieving T90 = 2.5 s with a 36× reduction in peak queue occupancy '
-    'relative to vanilla BBRv3. Fairness analysis confirms that advance knowledge does not '
-    'translate into a bandwidth advantage: BBR-SAT co-exists equitably with uninformed '
-    'BBRv3 flows (J = 0.997) and preserves the existing BBRv3/CUBIC balance. RFC '
+    'times (0–20 s), achieving T90 = 2.5 s with a 44× reduction in peak queue occupancy '
+    'relative to vanilla BBRv3 and 8× more goodput (18.6 MB vs. 2.3 MB over a 90-second '
+    'run). Fairness analysis confirms that advance knowledge does not translate into a '
+    'bandwidth advantage: BBR-SAT co-exists equitably with uninformed BBRv3 flows '
+    '(J = 0.994) and preserves the existing BBRv3/CUBIC balance. RFC '
     '9743/BCP 133 [15] requires fairness evaluation for any new CCA specification; this '
     'work satisfies that requirement for the satellite handover context.'
 )

@@ -17,10 +17,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-IN_CSV  = Path('/home/rajat/tcpsatproject/results/exp_full/exp1_raw.csv')
+IN_CSV  = Path('/home/rajat/tcpsatproject/results/gate_bdp_queue/leo_geo_sweep_v4/exp1_summary.csv')
 OUT_DIR = Path('/home/rajat/tcpsatproject/results/fairness')
 
-# ── load ──────────────────────────────────────────────────────────────────────
+# ── load summary (one row per condition, median T90) ──────────────────────────
 with open(IN_CSV) as f:
     rows = list(csv.DictReader(f))
 
@@ -41,11 +41,19 @@ def get_series(orbit_from, orbit_to, ho_time, baseline_id):
               and r['handover_time_s'] == str(ho_time)
               and int(r['baseline']) == baseline_id]
     subset.sort(key=lambda r: int(r['lead_time_s']))
+    seen_leads = set()
     leads, t90s, nc_flags = [], [], []
     for r in subset:
-        leads.append(int(r['lead_time_s']))
-        if r['converged'] == '1':
-            t90s.append(int(r['t90_us']) / 1e6)
+        lead = int(r['lead_time_s'])
+        if lead in seen_leads:
+            continue
+        seen_leads.add(lead)
+        leads.append(lead)
+        n_conv = int(r['n_converged'])
+        n_runs = int(r['n_runs'])
+        t90_med = float(r['t90_median_us'])
+        if n_conv > 0 and t90_med > 0:
+            t90s.append(t90_med / 1e6)
             nc_flags.append(False)
         else:
             t90s.append(NC_VALUE)
