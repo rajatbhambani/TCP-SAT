@@ -2093,15 +2093,21 @@ static void bbr_sat_handover_confirmed(
         current_entry->valid         = 1;
     }
 
-    /* Adaptive CONFIRMED: no-op path for target RTT ≤ BBRLongRttThreshold.
-     * BBRv3 handles LEO/MEO transitions natively — any explicit state change
-     * here (min_rtt swap, bw_hi update) can cause cwnd contractions or probe
-     * interference that slows convergence below B1's natural 1500ms baseline.
-     * Full context switch is reserved for GEO-class targets where BBRv3's
-     * startup_long_rtt trap requires aggressive intervention. */
+    /* Adaptive CONFIRMED: light-touch path for target RTT ≤ BBRLongRttThreshold.
+     * For LEO/MEO targets, bandwidth is unchanged (both 10 Mbps upload), but
+     * the RTT changes (e.g., 50ms→150ms for LEO→MEO).  BBRv3's min_rtt filter
+     * holds the stale 50ms value for 10 s, capping inflight at 62 KB — at the
+     * new 150ms RTT this yields only ~3.3 Mbps.  Fix: update min_rtt (and its
+     * timestamps) immediately so BBRv3 can expand cwnd to the correct BDP.
+     * Do NOT touch MaxBwFilter, bw_hi, inflight_hi, or enter REFILL — those
+     * are unchanged for lateral/upward transitions and would cause contractions. */
     if (target->valid && target->min_rtt_us > 0 &&
         target->min_rtt_us <= BBRLongRttThreshold) {
-        bbr_state->sat_current_orbit = target_orbit;
+        bbr_state->min_rtt             = target->min_rtt_us;
+        bbr_state->min_rtt_stamp       = current_time;
+        bbr_state->probe_rtt_min_delay = target->min_rtt_us;
+        bbr_state->probe_rtt_min_stamp = current_time;
+        bbr_state->sat_current_orbit   = target_orbit;
         return;
     }
 
