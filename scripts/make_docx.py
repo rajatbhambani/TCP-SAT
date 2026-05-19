@@ -154,12 +154,13 @@ add_para(
     'CONFIRMED signal resets the BDP context directly from the orbit table. Implemented '
     'in picoquic and evaluated in a zero-loss shared-link simulator across all six '
     'pairwise LEO/MEO/GEO transitions at three handover times and seven advance lead '
-    'times, BBR-SAT converges to 90% of new-orbit capacity in 2.5 s for the critical '
-    'LEO→GEO transition — the only evaluated mechanism to converge on this transition at '
-    'any lead time from 0 to 20 s — while reducing peak queue occupancy by 44× relative '
-    'to vanilla BBRv3. Fairness analysis shows that BBR-SAT co-exists equitably with '
-    'competing BBRv3 flows (Jain J = 0.994) and neither worsens nor repairs the '
-    'pre-existing BBRv3 deference to CUBIC.'
+    'times, BBR-SAT converges to 90% of new-orbit capacity in as little as 1.5 s with a '
+    '2-second advance signal (4.5 s at zero lead time) for the critical LEO→GEO transition '
+    'under a realistic 1×BDP droptail buffer cap — the only zero-loss algorithm to converge; '
+    'CUBIC converges in 5.5 s via packet loss while all BBR baselines fail (N/C, ≤71% utilisation). In the uncapped large-buffer scenario, '
+    'BBR-SAT reduces peak queue by 44× over vanilla BBRv3. Fairness analysis shows that '
+    'BBR-SAT co-exists equitably with competing BBRv3 flows (Jain J = 0.994) and neither '
+    'worsens nor repairs the pre-existing BBRv3 deference to CUBIC.'
 )
 
 p = doc.add_paragraph()
@@ -193,8 +194,9 @@ add_para(
     'transition. BBRv3\'s two-cycle `MaxBwFilter` requires approximately 8 × RTT_new to '
     'clear its pre-handover bandwidth estimate. On a GEO link (RTT ≈ 580 ms) that amounts '
     'to roughly 5 seconds of sustained over-pacing at 10 Mbps into a 3 Mbps pipe, '
-    'accumulating ≈12 MB of queued data and delivering only 2.3 MB total goodput in a '
-    '90-second window — 8× below BBR-SAT\'s 18.6 MB.'
+    'accumulating ≈12 MB of queued data in unmanaged buffers, and stalling below 70% '
+    'utilisation even under a realistic 1×BDP droptail cap — yielding only 13.7 MB goodput '
+    'versus BBR-SAT\'s 20.1 MB.'
 )
 
 add_para(
@@ -392,7 +394,7 @@ add_table_simple(
     headers=['Orbit', 'DL rate', 'UL rate', 'RTT', 'BDP (UL)'],
     rows=[
         ['LEO', '50 Mbps', '10 Mbps', '50 ms',  '62 KB'],
-        ['MEO', '30 Mbps', '10 Mbps', '150 ms', '188 KB'],
+        ['MEO', '30 Mbps', '10 Mbps', '160 ms', '200 KB'],
         ['GEO', '10 Mbps', '3 Mbps',  '580 ms', '218 KB'],
     ],
     caption='Table II. Simulated orbit parameters (BDP computed for upload bottleneck)'
@@ -475,137 +477,136 @@ add_para(
 )
 
 add_para(
-    '**B1 (vanilla BBRv3)** records T90 = 12.5 s, but this is a transient rather than '
-    'stable convergence: the delivered throughput briefly crosses 90% of the 3 Mbps GEO '
-    'capacity for a single one-second window at t + 12.5 s before collapsing to near-zero, '
-    'yielding only 2.3 MB total goodput. The on-path queue inflates to 12 MB (peak) as '
-    'BBRv3 retains its LEO-calibrated 10 Mbps bandwidth estimate after handover. Because '
-    'BBRv3\'s two-cycle `MaxBwFilter` clears only after roughly 8 × RTT_GEO ≈ 5 s [3], '
-    'the sender continues pacing at 10 Mbps into a 3 Mbps pipe. The pacing-rate '
-    'architecture means the queue cannot be drained by cwnd manipulations alone.'
+    '**B1 (vanilla BBRv3)** never converges: steady-state utilisation is 69% (2.1 Mbps) '
+    'and total goodput is 13.7 MB. BBRv3\'s pacing-rate architecture means cwnd '
+    'manipulations cannot drain the queue — pacing rate derives from the `MaxBwFilter`, '
+    'not the cwnd. After handover the filter retains the LEO-calibrated 10 Mbps estimate; '
+    'the sender over-paces into the 3 Mbps GEO link until the filter clears (~5 s), '
+    'at which point throughput stabilises below the 90% T90 threshold.'
 )
 
 add_para(
-    '**B3 (cwnd-freeze)** exhibits the same failure mode with identical numbers '
-    '(T90 = 12.5 s transient, 2.3 MB goodput, 12 MB peak queue). Freezing the congestion '
-    'window at the pre-handover LEO value has no effect because the send rate is governed '
-    'by the pacing rate (still 10 Mbps), not the cwnd. Advance warning is useless: even '
-    'at ℓ = 30 s, B3 does not converge to stable throughput above the 90% threshold.'
+    '**B3 (cwnd-freeze)** exhibits the same failure with identical numbers '
+    '(N/C, 69% util, 13.7 MB goodput). Freezing the cwnd at the pre-handover LEO value '
+    'has no effect: the send rate is governed by the pacing rate (still 10 Mbps), not '
+    'the cwnd. Advance warning does not help; even at ℓ = 30 s, B3 does not converge.'
 )
 
 add_para(
-    '**B4 (send-pause/resume)** converges exactly once across the full lead-time sweep, '
-    'at ℓ = 5 s (T90 = 5.6 s), and fails at every other lead time. The narrow success '
-    'window reflects the tight timing between the pause duration and the GEO queue-drain '
-    'time: too short a pause leaves residual in-flight data that re-inflates the queue; '
-    'too long a pause wastes capacity and triggers a slow-start on resume.'
+    '**B4 (send-pause/resume)** also fails to converge for LEO→GEO under the capped '
+    'buffer (N/C, 71% util, 14.0 MB goodput). The narrow timing requirement — pause long '
+    'enough to drain the GEO pipe but not so long as to trigger slow-start on resume — '
+    'cannot be satisfied reliably across the tested lead-time range.'
 )
 
 add_para(
-    '**BBR-SAT** converges at every tested lead time from ℓ = 0 to ℓ = 20 s, with '
-    'T90 = 2.5 s throughout. On receiving the CONFIRMED signal at T_HO, the algorithm '
-    'loads the seeded GEO orbit entry (`bw_hi` = 3 Mbps, `min_rtt` = 580 ms), enters '
-    'a brief DRAIN phase to clear residual in-flight data, then transitions to REFILL '
-    'and converges to a steady-state of 2.9 Mbps (97% of link capacity) with a peak '
-    'queue of only 286 KB — a 44× reduction compared to B1/B3. Goodput over the '
-    '90-second run is 18.6 MB, largely independent of lead time.'
+    '**BBR-SAT** converges loss-free in 4.5 s at 99% utilisation (2.97 Mbps) with '
+    '20.1 MB goodput — 46% more than B1. On CONFIRMED, the algorithm loads the seeded '
+    'GEO orbit entry (`bw_hi` = 3 Mbps, `min_rtt` = 580 ms), enters a brief DRAIN phase '
+    'to clear residual in-flight data, then converges via REFILL. A 2-second lead time '
+    'reduces T90 further to 1.5 s; beyond 2 s the drain completes before the handover '
+    'fires and BBR-SAT re-inflates the cwnd, establishing an effective lead-time window '
+    'of 0–2 s for this scenario.'
 )
 
 add_para(
-    'At ℓ = 30 s, T90 degrades sharply to 47.6 s. The PREDICTED signal at t = 0 s '
-    '(i.e. T_HO − 30 s) initiates a proactive queue drain via `ProbeBW_DOWN`; however, '
-    'because the actual handover does not occur for 30 s, BBR-SAT re-enters `ProbeBW_UP` '
-    'and rebuilds a LEO-calibrated queue before the CONFIRMED signal fires. This '
-    'establishes a practical upper bound: lead times up to approximately 20 s are '
-    'beneficial; beyond that, pre-draining fires too early to hold.'
+    '**CUBIC** converges in 5.5 s at 97% utilisation (2.90 Mbps) and 19.6 MB goodput. '
+    'Convergence is loss-driven: the buffer cap immediately triggers multiplicative window '
+    'reduction, and CUBIC settles within roughly 10 GEO RTTs (~5.5 s). BBR-SAT converges '
+    '18% faster than CUBIC, without packet loss.'
 )
 
 add_para(
-    '**CUBIC** converges in 10.5 s at all lead times, achieving a steady-state of '
-    '3.1 Mbps (~100% utilisation) and 19.2 MB goodput. The convergence is loss-driven: '
-    'the queue overflow immediately after handover triggers multiplicative window '
-    'reduction, and CUBIC settles within roughly 18 GEO RTTs (~10.5 s). Although CUBIC '
-    'achieves slightly higher single-flow goodput than BBR-SAT (at the cost of a '
-    '307 KB peak queue versus 286 KB), its behaviour under competition is discussed in '
-    '§V-B. For single-flow bulk transfer, CUBIC\'s loss-driven convergence is competitive; '
-    'BBR-SAT\'s advantage lies in zero-loss operation and mixed-CCA deployments where '
-    'BBRv3 flows must coexist fairly on a shared beam.'
+    '**Large-buffer reference** (uncapped queue): without a droptail limit, B1 and B3 '
+    'exhibit a brief transient (T90 = 12.5 s), throughput briefly crossing 2.7 Mbps for '
+    'a single one-second window before collapsing (2.3 MB goodput, 12 MB peak queue). '
+    'BBR-SAT converges in 2.5 s with a 44× lower peak queue (286 KB vs. B1/B3\'s '
+    '12,544 KB) and 18.6 MB goodput; CUBIC converges in 10.5 s. These numbers '
+    'characterise unmanaged satellite ground-station buffers.'
 )
 
 add_table_simple(
-    headers=['Baseline', 'T90', 'SS bw', 'Goodput', 'Peak Q'],
+    headers=['Baseline', 'T90', 'Util', 'Goodput', 'Peak Q'],
     rows=[
-        ['B1 BBRv3 (vanilla)', '12.5 s†', '0.0 Mbps', '2.3 MB', '12,544 KB'],
-        ['B3 cwnd-freeze',     '12.5 s†', '0.0 Mbps', '2.3 MB', '12,544 KB'],
-        ['B4 pause/resume',    'N/C',      '0.0 Mbps', '1.9 MB', '12,329 KB'],
-        [('BBR-SAT (ours)','b'), ('2.5 s','b'), ('2.9 Mbps','b'), ('18.6 MB','b'), ('286 KB','b')],
-        ['CUBIC',             '10.5 s', '3.1 Mbps', '19.2 MB', '307 KB'],
+        ['B1 BBRv3 (vanilla)', 'N/C',    '69%', '13.7 MB', '162 KB'],
+        ['B3 cwnd-freeze',     'N/C',    '69%', '13.7 MB', '162 KB'],
+        ['B4 pause/resume',    'N/C',    '71%', '14.0 MB', '164 KB'],
+        [('BBR-SAT (ours)','b'), ('4.5 s','b'), ('99%','b'), ('20.1 MB','b'), ('428 KB','b')],
+        ['CUBIC',             '5.5 s', '97%', '19.6 MB', '614 KB'],
     ],
-    caption='Table III. LEO→GEO, T_HO = 30 s, ℓ = 0, no loss'
+    caption='Table III. LEO→GEO, T_HO = 30 s, ℓ = 0, no loss, 1×BDP droptail cap (N=10 runs)'
 )
 
-add_note('† Transient only: throughput crosses 2.7 Mbps (90% of 3 Mbps) for one window '
-         'at t+12.5 s then collapses; goodput is 8× below BBR-SAT.')
+add_note('Util = post-handover steady-state throughput / 3 Mbps GEO link rate. '
+         'BBR-SAT achieves 99% utilisation loss-free; CUBIC at 97% via loss.')
 
 add_note('[FIGURE 1: T90 vs. advance lead time for the LEO→GEO transition (T_HO = 30 s, '
-         'no loss). BBR-SAT maintains a flat 2.5 s across ℓ ∈ [0, 20] s; open markers '
-         'at the top dashed line denote non-convergent (N/C) trials.]')
+         'no loss, uncapped queue shown for reference). Under the 1×BDP cap, BBR-SAT '
+         'achieves T90 = 4.5 s at ℓ = 0 and 1.5 s at ℓ = 2 s; B1/B3/B4 are N/C at all '
+         'lead times. Open markers at the top dashed line denote non-convergent (N/C) trials.]')
 
 add_heading('3) Lead-Time Sensitivity', level=3)
 
 add_para(
-    'Figure 1 plots T90 as a function of lead time for the LEO→GEO transition. BBR-SAT '
-    'maintains a flat T90 of 2.5 s across ℓ ∈ [0, 20] s, confirming that the PREDICTED '
-    'signal is effectively used but that even zero lead time is sufficient for convergence '
-    'given the seeded orbit table. The practical interpretation is that any advance notice '
-    'in the range 2–20 s is equally effective; the value of the PREDICTED signal lies '
-    'primarily in proactive queue drain that prevents mid-flight data from inflating the '
-    'post-handover queue, and this drain completes within one to two *pre-handover* '
-    '(LEO) RTTs (≈50–100 ms).'
+    'Figure 1 plots T90 as a function of lead time for the LEO→GEO transition (uncapped '
+    'queue, shown for reference). Under the primary 1×BDP cap, BBR-SAT achieves '
+    'T90 = 4.5 s at ℓ = 0; a 2-second lead time reduces this to 1.5 s. At longer lead '
+    'times (ℓ ≥ 5 s) T90 returns to 4.5 s: the PREDICTED drain completes in one to two '
+    'LEO RTTs (~100 ms) but the handover does not fire for several more seconds, during '
+    'which BBR re-enters ProbeBW_UP and rebuilds a LEO-calibrated cwnd. The sweet spot '
+    'is ℓ ∈ [0, 2] s; any signal in this range reduces T90 from 4.5 s to 1.5 s. '
+    'B1, B3, and B4 are N/C at every tested lead time under the cap.'
 )
 
 add_heading('4) Bandwidth-Increasing and Moderate Transitions', level=3)
 
 add_para(
     'For bandwidth-increasing transitions (MEO→LEO, GEO→LEO, GEO→MEO) and the moderate '
-    'MEO→GEO transition, all baselines converge at ℓ = 0 with T90 ≤ 2.5 s (Table IV). '
-    'Bandwidth increases are inherently self-correcting: the new link can absorb the '
-    'pre-handover cwnd without queue buildup. For these transitions, BBR-SAT\'s CONFIRMED '
-    'handler is a no-op (target RTT ≤ 250 ms for MEO/LEO), so BBR-SAT matches B1/B3 '
-    'exactly. For LEO→MEO, all BBR variants record N/C because LEO and MEO share '
-    'identical upload BW (10 Mbps): the T90 threshold (9 Mbps) is not reached during the '
-    '10-second `min_rtt` filter window when the RTT triples. CUBIC overcomes this in '
-    '5.5 s via loss-driven window growth. This N/C is a metric artifact — the actual '
-    'bottleneck capacity is unchanged at 10 Mbps throughout.'
+    'MEO→GEO transition, all baselines converge at ℓ = 0 with T90 ≤ 2.5 s (Table IV), '
+    'with the exception of B4. Bandwidth increases are inherently self-correcting. For '
+    'these transitions, BBR-SAT\'s CONFIRMED handler is a no-op (target RTT ≤ 250 ms for '
+    'MEO/LEO), so BBR-SAT matches B1/B3 exactly. For LEO→MEO, all BBR variants record '
+    'N/C because LEO and MEO share identical upload BW (10 Mbps): the T90 threshold '
+    '(9 Mbps) is not reached during the 10-second `min_rtt` filter window when the RTT '
+    'triples. CUBIC overcomes this in 5.5 s via loss-driven window growth. This N/C is '
+    'a metric artifact — the actual bottleneck capacity is unchanged at 10 Mbps.'
+)
+
+add_para(
+    '**B4 catastrophic failure for GEO→LEO.** Under the 1×BDP cap, B4 fails '
+    'catastrophically for the GEO→LEO transition (N/C, <1 MB goodput, 45 MB peak queue). '
+    'With ℓ = 0, PREDICTED and CONFIRMED fire simultaneously; B4\'s zero-duration pause '
+    'triggers an immediate retransmission storm on resume that overwhelms the LEO link.'
 )
 
 add_table_simple(
     headers=['Transition', 'B1', 'B3', 'B4', 'BBR-SAT', 'CUBIC'],
     rows=[
-        ['LEO→MEO', 'N/C‡', 'N/C‡', 'N/C‡', 'N/C‡',          '5.5 s'],
-        ['LEO→GEO', '12.5 s†', '12.5 s†', 'N/C', ('2.5 s','b'), '10.5 s'],
-        ['MEO→LEO', '0.5 s', '0.5 s', '0.5 s', '0.5 s',         '0.5 s'],
-        ['GEO→LEO', '1.5 s', '1.5 s', '0.5 s', '1.5 s',         '0.5 s'],
-        ['MEO→GEO', '1.5 s', '1.5 s', '1.5 s', '1.5 s',         '1.5 s'],
-        ['GEO→MEO', '2.5 s', '2.5 s', '2.5 s', '2.5 s',         '0.5 s'],
+        ['LEO→MEO', 'N/C‡', 'N/C‡', 'N/C‡', 'N/C‡',           '5.5 s'],
+        ['LEO→GEO', 'N/C',  'N/C',  'N/C',  ('4.5 s','b'),     '5.5 s'],
+        ['MEO→LEO', '0.5 s', '0.5 s', '0.5 s', '0.5 s',        '0.5 s'],
+        ['GEO→LEO', '1.5 s', '1.5 s', 'N/C§', '1.5 s',         '1.5 s'],
+        ['MEO→GEO', '0.5 s', '0.5 s', '0.5 s', '0.5 s',        '0.5 s'],
+        ['GEO→MEO', '2.5 s', '2.5 s', '1.5 s', '2.5 s',        '1.5 s'],
     ],
-    caption='Table IV. T90 at ℓ = 0, T_HO = 30 s, no loss (all transitions)'
+    caption='Table IV. T90 at ℓ = 0, T_HO = 30 s, no loss, 1×BDP cap (all transitions)'
 )
 
-add_note('† Transient only; see Table III and §V-A.2.\n'
-         '‡ Metric artifact: LEO/MEO share identical upload BW (10 Mbps); see §V-A.4.')
+add_note('‡ Metric artifact: LEO/MEO share identical upload BW (10 Mbps); see §V-A.4.\n'
+         '§ B4 catastrophic: retransmit storm on zero-duration pause; 45 MB queue, <1 MB goodput.')
 
 add_heading('5) Handover-Time Sensitivity', level=3)
 
 add_para(
-    'Repeating the LEO→GEO experiment at T_HO = 60 s reveals moderate T90 inflation: '
-    'BBR-SAT achieves 2.5 s at ℓ ∈ {0, 20} s but 7.5–9.5 s at intermediate lead times, '
-    'likely due to the orbit table\'s minimum-RTT entry drifting over the longer '
-    'pre-handover interval as BBR natural probing samples slightly elevated RTTs. At '
-    'T_HO = 120 s all BBR-SAT conditions fail to converge, suggesting that the orbit '
-    'table\'s 10-second `min_rtt` expiry window allows the seeded GEO RTT entry to '
-    'become stale before the handover fires. Extending the orbit table\'s RTT confidence '
-    'window for long-duration pre-handover periods is identified as future work.'
+    'Under the 1×BDP cap, BBR-SAT achieves T90 = 1.5 s for all tested lead times at '
+    'T_HO = 60 s, an improvement over the 4.5 s baseline at T_HO = 30 s. The longer '
+    'pre-handover window allows more probe cycles to accumulate before CONFIRMED fires, '
+    'reducing time in REFILL. At T_HO = 120 s, T90 = 4.5 s at ℓ = 0, improving to '
+    '1.5 s at ℓ = 2 s. The orbit table\'s 10-second `min_rtt` expiry allows the seeded '
+    'GEO RTT entry to become partially stale before the handover fires at 120 s; a '
+    '2-second lead time re-seeds `min_rtt` just before the CONFIRMED signal. Extending '
+    'the orbit table\'s RTT confidence window for long-duration pre-handover periods is '
+    'identified as future work.'
 )
 
 add_heading('B. Fairness Under Competition', level=2)
@@ -765,13 +766,15 @@ add_para(
     'on downward BDP transitions. In a zero-loss simulator spanning all six pairwise '
     'LEO/MEO/GEO transitions, BBR-SAT is the only evaluated mechanism to converge '
     'consistently on the critical LEO→GEO transition across the full range of tested lead '
-    'times (0–20 s), achieving T90 = 2.5 s with a 44× reduction in peak queue occupancy '
-    'relative to vanilla BBRv3 and 8× more goodput (18.6 MB vs. 2.3 MB over a 90-second '
-    'run). Fairness analysis confirms that advance knowledge does not translate into a '
-    'bandwidth advantage: BBR-SAT co-exists equitably with uninformed BBRv3 flows '
-    '(J = 0.994) and preserves the existing BBRv3/CUBIC balance. RFC '
-    '9743/BCP 133 [15] requires fairness evaluation for any new CCA specification; this '
-    'work satisfies that requirement for the satellite handover context.'
+    'transitions under a realistic 1×BDP droptail buffer cap, BBR-SAT is the only '
+    'evaluated algorithm to converge consistently on the critical LEO→GEO transition, '
+    'achieving T90 = 4.5 s at zero lead time (1.5 s with a 2-second advance signal) '
+    'with 99% link utilisation and 46% more goodput than vanilla BBRv3 (20.1 MB vs. '
+    '13.7 MB). CUBIC converges in 5.5 s via packet loss; all other BBR baselines fail '
+    'to converge. In the uncapped large-buffer scenario, BBR-SAT reduces peak queue by '
+    '44× over vanilla BBRv3. Fairness analysis confirms that advance knowledge does not '
+    'translate into a bandwidth advantage: BBR-SAT co-exists equitably with uninformed '
+    'BBRv3 flows (J = 0.994) and preserves the existing BBRv3/CUBIC balance.'
 )
 
 # ═══════════════════════════════════════════════════════════════════════════

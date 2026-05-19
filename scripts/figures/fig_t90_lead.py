@@ -17,7 +17,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-IN_CSV  = Path('/home/rajat/tcpsatproject/results/gate_bdp_queue/leo_geo_sweep_v4/exp1_summary.csv')
+IN_CSV  = Path('/home/rajat/tcpsatproject/results/capped_sweep_v1/exp1_summary.csv')
 OUT_DIR = Path('/home/rajat/tcpsatproject/results/fairness')
 
 # ── load summary (one row per condition, median T90) ──────────────────────────
@@ -90,16 +90,14 @@ for bid, (label, color, marker, ls) in BASELINES.items():
         ax.plot(nc_leads, nc_t90s, marker=marker, ms=6, mfc='none',
                 mec=color, mew=1.5, ls='none', zorder=4)
 
-# annotation for the BBR-SAT plateau and cliff
-ax.annotate('', xy=(30, 47.6), xytext=(20, 2.5),
-            arrowprops=dict(arrowstyle='->', color='#1f77b4', lw=1.1,
-                            connectionstyle='arc3,rad=0.25'))
-ax.text(21, 22, 'lead=30 s:\npre-drain\nfires too early', fontsize=6,
-        color='#1f77b4', va='center')
+# annotation: ℓ=2 sweet spot
+ax.annotate('ℓ=2 s: 1.5 s\n(3× faster)', xy=(2, 1.5), xytext=(6, 6),
+            fontsize=6.5, color='#1f77b4', va='bottom',
+            arrowprops=dict(arrowstyle='->', color='#1f77b4', lw=1.0))
 
 ax.set_xlabel('Advance lead time  ℓ (s)', fontsize=9)
 ax.set_ylabel('T90 (s)', fontsize=9)
-ax.set_title('T90 vs lead time — LEO→GEO,  $T_{\\mathrm{HO}}=30\\,s$', fontsize=9)
+ax.set_title('T90 vs lead time — LEO→GEO,  $T_{\\mathrm{HO}}=30\\,s$,  1×BDP cap', fontsize=9)
 
 ax.set_xlim(-1, 32)
 ax.set_ylim(0, NC_Y + 4)

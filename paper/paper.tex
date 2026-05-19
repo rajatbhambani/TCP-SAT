@@ -53,8 +53,9 @@ acting as a no-op for upward transitions that self-correct naturally.
 Implemented in picoquic and evaluated in a zero-loss shared-link simulator
 across all six pairwise LEO/MEO/GEO transitions at three handover times and
 six advance lead times, BBR-SAT converges to 90\% of new-orbit capacity
-in 4.5\,s for the critical LEO$\to$GEO transition under a realistic
-1$\times$BDP droptail buffer cap --- the only zero-loss algorithm to converge;
+in as little as 1.5\,s with a 2-second advance signal (4.5\,s at zero lead
+time) for the critical LEO$\to$GEO transition under a realistic 1$\times$BDP
+droptail buffer cap --- the only zero-loss algorithm to converge;
 CUBIC converges in 5.5\,s via packet loss, while all BBR baselines fail
 (N/C, ${\leq}71$\,\% utilisation).
 In the uncapped large-buffer scenario, BBR-SAT reduces peak queue by
@@ -327,7 +328,7 @@ congestion-control response from loss-recovery interactions.
 Orbit & DL rate & UL rate & RTT  & BDP \\
 \midrule
 LEO   & 50\,Mbps & 10\,Mbps & 50\,ms  & 62\,KB \\
-MEO   & 30\,Mbps & 10\,Mbps & 150\,ms & 188\,KB \\
+MEO   & 30\,Mbps & 10\,Mbps & 160\,ms & 200\,KB \\
 GEO   & 10\,Mbps & 3\,Mbps  & 580\,ms & 218\,KB \\
 \bottomrule
 \end{tabular}
@@ -496,9 +497,9 @@ not bloat, when the algorithm converges.}
 \centering
 \includegraphics[width=\columnwidth]{../results/fairness/fig_t90_lead.pdf}
 \caption{T90 vs.\ advance lead time for the LEO$\to$GEO transition
-($T_\mathrm{HO}=30$\,s, no loss, uncapped queue shown for reference).
-Under the 1$\times$BDP cap, BBR-SAT achieves T90\,=\,4.5\,s at $\ell=0$
-and 1.5\,s at $\ell=2$\,s; B1/B3/B4 are N/C at all lead times.
+($T_\mathrm{HO}=30$\,s, no loss, 1$\times$BDP droptail cap).
+BBR-SAT achieves T90\,=\,4.5\,s at $\ell=0$, dropping to 1.5\,s at
+$\ell=2$\,s (3$\times$ faster); B1, B3, and B4 are N/C at all lead times.
 Open markers at the top dashed line denote non-convergent (N/C) trials.}
 \label{fig:t90_lead}
 \end{figure}
@@ -506,9 +507,9 @@ Open markers at the top dashed line denote non-convergent (N/C) trials.}
 \subsubsection{Lead-Time Sensitivity}
 
 Figure~\ref{fig:t90_lead} plots T90 as a function of lead time for the
-LEO$\to$GEO transition (uncapped queue, shown for reference).
-Under the primary 1$\times$BDP cap, BBR-SAT achieves T90\,=\,4.5\,s
-at $\ell = 0$; a 2-second lead time reduces this to 1.5\,s.
+LEO$\to$GEO transition under the 1$\times$BDP cap.
+BBR-SAT achieves T90\,=\,4.5\,s at $\ell = 0$; a 2-second lead time
+reduces this to 1.5\,s.
 At longer lead times ($\ell \geq 5$\,s) T90 returns to 4.5\,s:
 the PREDICTED drain completes in one to two LEO RTTs ($\approx$100\,ms)
 but the handover does not fire for several more seconds, during which
@@ -544,12 +545,12 @@ With the corrected asymmetric link model, LEO and MEO share the same
 upload bottleneck rate (10\,Mbps), so the T90 threshold (9\,Mbps,
 i.e.\ 90\,\% of 10\,Mbps) requires sustaining near-maximum throughput
 immediately after the handover.
-After the handover, the RTT triples from 50\,ms to 150\,ms; BBR's
+After the handover, the RTT triples from 50\,ms to 160\,ms; BBR's
 \texttt{min\_rtt} filter retains the stale 50\,ms estimate for up to
 10\,s, capping the effective inflight window at BDP$_\mathrm{LEO}$
 (62\,KB).
-At the higher RTT, this window yields only $62\,\text{KB}/150\,\text{ms}
-\approx 3.3$\,Mbps --- well below the 9\,Mbps threshold --- for the
+At the higher RTT, this window yields only $62\,\text{KB}/160\,\text{ms}
+\approx 3.1$\,Mbps --- well below the 9\,Mbps threshold --- for the
 duration of the filter window, explaining the N/C result for all BBR
 variants.
 CUBIC's loss-driven window growth from an undersized initial cwnd
@@ -557,6 +558,10 @@ overcomes the RTT transition in 5.5\,s.
 This N/C is a \emph{metric artifact}: the actual bottleneck capacity
 is unchanged at 10\,Mbps throughout, and all algorithms sustain near-full
 utilisation in steady state both before and after the handover.
+Resolving the MaxBwFilter plateau would require artificially inflating
+bandwidth estimates beyond observed delivery rates --- a modification that
+would compromise BBRv3's model-based design and is outside the scope of
+this extension.
 
 \begin{table}[t]
 \centering
@@ -582,6 +587,15 @@ GEO$\to$MEO  & 2.5\,s & 2.5\,s & 1.5\,s & 2.5\,s  & 1.5\,s \\
 {\footnotesize $^\ddagger$ Metric artifact: LEO/MEO share identical upload BW (10\,Mbps); see \S\ref{sec:exp1}.\\
 $^\S$ B4 catastrophic: retransmit storm on zero-duration pause; 45\,MB queue, $<$1\,MB goodput.}
 \end{table}
+
+On MEO$\to$GEO, BBR-SAT's full context switch causes a brief throughput
+dip during the \texttt{MaxBwFilter} reset, reducing total goodput by
+14\,\% relative to vanilla BBRv3 (17.95 vs.\ 20.82\,MB) despite identical
+T90 (0.5\,s).
+This is the only transition where the always-on mechanism incurs a
+measurable goodput cost; a production deployment could gate the full switch
+on the source-to-target BW ratio to suppress it for transitions where
+vanilla BBRv3 converges without assistance.
 
 \subsubsection{Handover-Time Sensitivity}
 
