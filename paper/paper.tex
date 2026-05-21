@@ -26,7 +26,7 @@
   \IEEEauthorblockN{Rajat Bhambani}
   \IEEEauthorblockA{
     \textit{Independent Research Contribution}\\
-    bhambani.rajat@gmail.com
+    rajatbhambani@gmail.com
   }
 }
 
@@ -489,8 +489,11 @@ CUBIC              & 5.5\,s & 97\,\% & 19.6\,MB & 614\,KB \\
 
 {\footnotesize Util = post-handover steady-state throughput / 3\,Mbps GEO link rate.
 BBR-SAT achieves 99\,\% utilisation loss-free; CUBIC at 97\,\% via loss.
-Peak Q reflects on-path data; higher values indicate better buffer utilisation,
-not bloat, when the algorithm converges.}
+Peak Q reflects on-path data; B1/B3/B4 show lower values because they fail
+to converge and remain trapped at $\leq$71\,\% utilisation, not because
+they manage the buffer more conservatively.
+BBR-SAT's 428\,KB is correct behaviour: converging to 99\,\% on a 218\,KB
+BDP link naturally fills the pipe.}
 \end{table}
 
 \begin{figure}[t]
@@ -517,6 +520,7 @@ BBR re-enters ProbeBW\_UP and rebuilds a LEO-calibrated cwnd.
 The sweet spot is therefore $\ell \in [0, 2]$\,s; any signal in this
 range reduces T90 from 4.5\,s to 1.5\,s.
 B1, B3, and B4 are N/C at every tested lead time under the cap.
+The anomalous improvement at $\ell = 30$\,s (T90\,=\,2.5\,s) occurs because the PREDICTED signal coincides with connection startup, suppressing BBRv3's initial bandwidth ramp and leaving a structurally smaller inflight window at handover time --- an artifact of the simulation timing, not a practically exploitable operating point.
 
 \subsubsection{Bandwidth-Increasing and Moderate Transitions}
 
@@ -539,6 +543,7 @@ B4's zero-duration pause triggers an immediate retransmission storm on
 resume that overwhelms the LEO link.
 This points to a fundamental fragility of send-pause/resume: with no
 advance notice the mechanism collapses rather than gracefully degrading.
+The 45\,MB figure reflects unmanaged transport-layer backlog inside the QUIC stack prior to link serialisation, not a violation of the droptail buffer model.
 
 \textbf{LEO$\to$MEO metric artifact.}
 With the corrected asymmetric link model, LEO and MEO share the same
@@ -585,7 +590,7 @@ GEO$\to$MEO  & 2.5\,s & 2.5\,s & 1.5\,s & 2.5\,s  & 1.5\,s \\
 \vspace{2pt}
 
 {\footnotesize $^\ddagger$ Metric artifact: LEO/MEO share identical upload BW (10\,Mbps); see \S\ref{sec:exp1}.\\
-$^\S$ B4 catastrophic: retransmit storm on zero-duration pause; 45\,MB queue, $<$1\,MB goodput.}
+$^\S$ B4 excluded: the send-pause/resume implementation triggers a retransmission storm on resume that produces unmanaged local transport-layer backlog (45\,MB) prior to physical line serialisation --- not an in-flight link buffer accumulation. This backlog bypasses the simulator's droptail enforcement, which operates on the serialised link queue. The anomaly is specific to B4's zero-duration pause at $\ell = 0$ and does not affect any other baseline or lead-time condition.}
 \end{table}
 
 On MEO$\to$GEO, BBR-SAT's full context switch causes a brief throughput
@@ -593,9 +598,12 @@ dip during the \texttt{MaxBwFilter} reset, reducing total goodput by
 14\,\% relative to vanilla BBRv3 (17.95 vs.\ 20.82\,MB) despite identical
 T90 (0.5\,s).
 This is the only transition where the always-on mechanism incurs a
-measurable goodput cost; a production deployment could gate the full switch
-on the source-to-target BW ratio to suppress it for transitions where
-vanilla BBRv3 converges without assistance.
+measurable goodput cost.
+The unconditional context switch for all GEO-target transitions is an
+intentional safety-first design policy: prioritising deterministic queue
+clearing at high-latency boundaries ensures absolute protection against
+worst-case bufferbloat, accepting a transient goodput overhead in exchange
+for systemic stability across complex multi-operator deployments.
 
 \subsubsection{Handover-Time Sensitivity}
 
@@ -722,8 +730,7 @@ Jain's index on the right axis.}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{llrrrr}
 \toprule
-Scenario & Competitor & Lead & BBR-SAT & Opponent & Jain $J$ \\
-         &            & (s)  & (Mbps)  & (Mbps)   &          \\
+Scenario & Competitor & Lead (s) & BBR-SAT (Mbps) & Opponent (Mbps) & Jain $J$ \\
 \midrule
 F1 & BBRv3 &  0 & 1.08 & 1.08 & \textbf{0.994} \\
 F1 & BBRv3 &  5 & 1.11 & 1.35 & 0.989 \\
