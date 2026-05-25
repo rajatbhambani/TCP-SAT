@@ -34,13 +34,14 @@
 
 % ── Abstract ──────────────────────────────────────────────────────────────────
 \begin{abstract}
-Low-Earth orbit (LEO), medium-Earth orbit (MEO), and geostationary (GEO)
-satellite constellations are increasingly deployed together, creating
-multi-orbit networks in which a single QUIC connection may traverse
-orbit-class boundaries mid-flight.
-Such handovers impose abrupt, step-change shifts in available bandwidth
-(up to $3.3\times$ upload reduction) and round-trip time (up to $12\times$
-increase), which existing congestion-control algorithms handle poorly:
+Enterprise and maritime operators increasingly combine LEO, MEO, and GEO
+satellite links into unified multi-WAN architectures using SD-WAN devices
+that preserve transport sessions across WAN switches.
+When traffic fails over between orbit classes --- whether via an SD-WAN
+policy decision today or a single-terminal beam switch in the near future
+--- the surviving TCP or QUIC connection experiences an abrupt, step-change
+shift in path characteristics that existing congestion control algorithms
+(CCAs) handle poorly:
 BBRv3 stalls for the duration of its two-cycle bandwidth filter, and
 simple heuristics such as congestion-window freeze or send-pause succeed
 only at a single, carefully tuned lead time.
@@ -76,20 +77,23 @@ multi-orbit networks, LEO, GEO
 
 The deployment of large LEO constellations (Starlink, OneWeb, Amazon
 Kuiper)~\cite{handley2018delay,bhattacherjee2019}
-alongside legacy MEO (O3b mPOWER) and GEO (ViaSat-3) infrastructure has
-created a new class of network event: the \emph{inter-orbit handover}, in
-which an active transport connection migrates between satellite beams
-belonging to orbit classes with fundamentally different propagation
-characteristics.
-Such transitions are \emph{abrupt} --- the link properties change at the
-granularity of a single RTT --- and \emph{asymmetric}:
-a LEO$\to$GEO handover simultaneously reduces the upload bottleneck rate by
-$3.3\times$ (10$\to$3\,Mbps) and increases the round-trip propagation delay
-by $\sim$$12\times$ (50$\to$580\,ms).
-Because the GEO BDP (3\,Mbps$\times$580\,ms\,=\,218\,KB) exceeds the
-LEO BDP (10\,Mbps$\times$50\,ms\,=\,62\,KB) by $3.5\times$, the \emph{new}
-orbit requires a \emph{larger} inflight window --- but at a \emph{much lower}
-pacing rate.
+alongside legacy MEO (O3b, O3b mPOWER) and GEO (ViaSat-3) infrastructure
+has created a heterogeneous satellite ecosystem.
+Today, enterprise and maritime operators routinely combine terminals from
+multiple constellations into unified multi-WAN architectures using SD-WAN
+devices (Peplink, Cisco, Fortinet) that bond LEO, MEO, and GEO links for
+resilience and load balancing.
+These SD-WAN platforms preserve transport-layer sessions across WAN switches
+via overlay tunnels or split-TCP proxies: when the SD-WAN fails traffic over
+from a LEO link to a GEO link, the TCP or QUIC connection's 5-tuple survives,
+but the congestion control algorithm (CCA) is abruptly exposed to a path with
+fundamentally different characteristics --- without any advance notification.
+In the near future, single multi-beam terminals capable of accessing multiple
+orbital planes will further increase the frequency of such transitions.
+Whether triggered by an SD-WAN policy decision or a single-terminal beam
+switch, the transport-layer impact is identical: an abrupt, step-change shift
+in available bandwidth (up to $3.3\times$ upload reduction) and round-trip
+time (up to $12\times$ increase).
 
 Modern QUIC stacks running BBRv3~\cite{cardwell2026bbr} are particularly
 poorly suited to absorb this transition.
@@ -291,6 +295,13 @@ filter convergence.
 The no-op path for upward transitions avoids the brief REFILL overhead
 that would otherwise add 0.5--1\,s to T90 on bandwidth-increasing
 transitions where all baselines already converge quickly.
+
+Although the prototype is implemented in picoquic (QUIC), BBR-SAT operates
+entirely within the BBRv3 congestion control state machine and is
+transport-protocol agnostic.
+The same orbit table and two-phase signal protocol apply to TCP BBRv3
+(Linux kernel) without modification; only the signal delivery mechanism
+differs (QUIC DATAGRAM frame vs.\ TCP option or socket API).
 
 % ── IV. Methodology ───────────────────────────────────────────────────────────
 \section{Methodology}
