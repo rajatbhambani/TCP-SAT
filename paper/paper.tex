@@ -580,7 +580,7 @@ this extension.
 Transition & B1 & B3 & B4 & BBR-SAT & CUBIC \\
 \midrule
 LEO$\to$MEO  & N/C$^\ddagger$ & N/C$^\ddagger$ & N/C$^\ddagger$ & N/C$^\ddagger$ & 5.5\,s \\
-LEO$\to$GEO  & N/C & N/C & N/C & \textbf{4.5\,s} & 5.5\,s \\
+LEO$\to$GEO  & N/C$^\dagger$ & N/C$^\dagger$ & N/C$^\dagger$ & \textbf{4.5\,s} & 5.5\,s \\
 MEO$\to$LEO  & 0.5\,s & 0.5\,s & 0.5\,s & 0.5\,s  & 0.5\,s \\
 GEO$\to$LEO  & 1.5\,s & 1.5\,s & N/C$^\S$ & 1.5\,s  & 1.5\,s \\
 MEO$\to$GEO  & 0.5\,s & 0.5\,s & 0.5\,s & 0.5\,s  & 0.5\,s \\
@@ -589,7 +589,8 @@ GEO$\to$MEO  & 2.5\,s & 2.5\,s & 1.5\,s & 2.5\,s  & 1.5\,s \\
 \end{tabular}
 \vspace{2pt}
 
-{\footnotesize $^\ddagger$ Metric artifact: LEO/MEO share identical upload BW (10\,Mbps); see \S\ref{sec:exp1}.\\
+{\footnotesize $^\dagger$ BBRv3 filter non-convergence: \texttt{MaxBwFilter} retains the LEO-calibrated 10\,Mbps estimate for ${\approx}8{\times}\mathrm{RTT}_\mathrm{GEO}$, causing persistent over-pacing into the 3\,Mbps pipe; see \S\ref{sec:exp1}.\\
+$^\ddagger$ Metric artifact: LEO/MEO share identical upload BW (10\,Mbps); see \S\ref{sec:exp1}.\\
 $^\S$ B4 excluded: the send-pause/resume implementation triggers a retransmission storm on resume that produces unmanaged local transport-layer backlog (45\,MB) prior to physical line serialisation --- not an in-flight link buffer accumulation. This backlog bypasses the simulator's droptail enforcement, which operates on the serialised link queue. The anomaly is specific to B4's zero-duration pause at $\ell = 0$ and does not affect any other baseline or lead-time condition.}
 \end{table}
 
@@ -728,6 +729,7 @@ Jain's index on the right axis.}
 \label{tab:exp2}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{llrrrr}
 \toprule
 Scenario & Competitor & Lead (s) & BBR-SAT (Mbps) & Opponent (Mbps) & Jain $J$ \\
@@ -746,7 +748,7 @@ F1 & CUBIC  & 20 & 0.43 & 2.42 & 0.696 \\
 \midrule
 F3 & CUBIC  &  0 & 1.31 & 1.58 & 0.887 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 % ── VI. Discussion ────────────────────────────────────────────────────────────
