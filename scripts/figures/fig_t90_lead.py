@@ -14,11 +14,13 @@ import csv
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-IN_CSV  = Path('/home/rajat/tcpsatproject/results/exp_full/exp1_raw.csv')
-OUT_DIR = Path('/home/rajat/tcpsatproject/results/fairness')
+IN_CSV  = Path('/home/user/TCP-SAT/results/exp_full/exp1_raw.csv')
+OUT_DIR = Path('/home/user/TCP-SAT/results/fairness')
 
 # ── load ──────────────────────────────────────────────────────────────────────
 with open(IN_CSV) as f:
