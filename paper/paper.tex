@@ -352,9 +352,6 @@ links and serves as the ACK return path.
 We model the bottleneck with a 1$\times$BDP droptail cap
 (\texttt{queue\_delay\_max} = 2$\times$one-way latency), reflecting
 conservative but realistic satellite ground-station buffer provisioning.
-For reference, selected results under an uncapped queue are also reported
-to characterise the worst-case large-buffer scenario; the 12\,MB peak for
-B1 in that model illustrates the maximum harm of an uncontrolled queue.
 
 \subsection{Baselines}
 
@@ -594,12 +591,11 @@ concern is whether BBR-SAT exploits that advantage at the expense of
 competing flows that share the bottleneck.
 We evaluate two scenarios using the shared-link simulator described in
 \S\ref{sec:methodology}:
-\textbf{F1}~---~two flows both crossing a LEO$\to$GEO handover at $T=30$\,s,
-and \textbf{F3}~---~two flows that start simultaneously on a GEO beam
+\textbf{F1}~---~two flows both crossing a LEO$\to$GEO handover at $T=30$\,s;
+and \textbf{F3}~---~two flows that start simultaneously on a GEO beam and
+reach steady state before BBR-SAT re-anchors its BDP context at $T=30$\,s
 (F2, covering BBR-SAT joining an already-converged GEO flow, reduces to
 the F3 post-convergence case and is subsumed by it).
-and reach steady state before BBR-SAT re-anchors its BDP context at
-$T=30$\,s.
 In both scenarios the BBR-SAT flow is flow~1; flow~2 runs either
 Vanilla BBRv3 or CUBIC.
 Per-second throughput and Jain's fairness index~\cite{jain1984} are
