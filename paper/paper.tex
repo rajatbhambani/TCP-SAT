@@ -12,7 +12,12 @@
 \usepackage{hyperref}
 \usepackage[capitalise,noabbrev]{cleveref}
 
-\hypersetup{colorlinks=false, pdfborder={0 0 0}}
+\hypersetup{colorlinks=false, pdfborder={0 0 0}, bookmarks=false}
+
+% Ensure column gutter meets conference requirement (>= 0.2 in)
+\setlength{\columnsep}{0.25in}
+% Ensure top margin is at least 0.75 in on all pages
+\setlength{\topmargin}{-0.25in}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}

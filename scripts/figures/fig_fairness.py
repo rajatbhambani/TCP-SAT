@@ -18,12 +18,14 @@ Writes results/fairness/fig_fairness.{pdf,png}
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import matplotlib.pyplot as plt
 from pathlib import Path
 from collections import defaultdict
 
-IN_DIR  = Path('/home/rajat/tcpsatproject/results/fairness')
-OUT_DIR = IN_DIR
+IN_DIR  = Path('/home/user/TCP-SAT/results/fairness')
+OUT_DIR = Path('/home/user/TCP-SAT/results/fairness')
 HANDOVER_T = 30
 
 # ── helpers ───────────────────────────────────────────────────────────────────
