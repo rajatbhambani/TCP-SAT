@@ -468,16 +468,6 @@ multiplicative window reduction, and CUBIC settles within roughly
 10 GEO RTTs ($\approx$5.5\,s).
 BBR-SAT converges 18\,\% faster than CUBIC, without packet loss.
 
-\textbf{Large-buffer reference} (uncapped queue):
-Without a droptail limit, B1 and B3 exhibit a brief transient
-(T90\,=\,12.5\,s), throughput briefly crossing 2.7\,Mbps for a single
-one-second window before collapsing to near-zero (2.3\,MB goodput, 12\,MB
-peak queue).
-BBR-SAT converges in 2.5\,s with a $44\times$ lower peak queue (286\,KB
-vs.\ B1/B3's 12\,544\,KB) and 18.6\,MB goodput; CUBIC converges in 10.5\,s.
-These numbers characterise unmanaged satellite ground-station buffers;
-the 1$\times$BDP cap above is the primary evaluation model.
-
 \begin{table}[t]
 \centering
 \caption{LEO$\to$GEO, $T_\mathrm{HO}=30$\,s, $\ell=0$, no loss,
@@ -546,38 +536,12 @@ For these transitions, BBR-SAT's CONFIRMED handler is a no-op (target
 RTT\,$\leq$\,250\,ms for MEO/LEO), so BBR-SAT matches B1/B3 exactly.
 
 \textbf{B4 catastrophic failure for GEO$\to$LEO.}
-Under the 1$\times$BDP cap, B4 fails catastrophically for the
-GEO$\to$LEO transition (N/C, $<$1\,MB goodput, 45\,MB peak queue despite
-the cap).
-With $\ell = 0$, PREDICTED and CONFIRMED fire simultaneously;
-B4's zero-duration pause triggers an immediate retransmission storm on
-resume that overwhelms the LEO link.
-This points to a fundamental fragility of send-pause/resume: with no
-advance notice the mechanism collapses rather than gracefully degrading.
-The 45\,MB figure reflects unmanaged transport-layer backlog inside the QUIC stack prior to link serialisation, not a violation of the droptail buffer model.
+B4 fails catastrophically for GEO$\to$LEO (N/C, $<$1\,MB goodput); the 45\,MB transport-layer backlog reflects a retransmission storm inside the QUIC stack, not a droptail cap violation.
 
 \textbf{LEO$\to$MEO metric artifact.}
-With the corrected asymmetric link model, LEO and MEO share the same
-upload bottleneck rate (10\,Mbps), so the T90 threshold (9\,Mbps,
-i.e.\ 90\,\% of 10\,Mbps) requires sustaining near-maximum throughput
-immediately after the handover.
-After the handover, the RTT triples from 50\,ms to 160\,ms; BBR's
-\texttt{min\_rtt} filter retains the stale 50\,ms estimate for up to
-10\,s, capping the effective inflight window at BDP$_\mathrm{LEO}$
-(62\,KB).
-At the higher RTT, this window yields only $62\,\text{KB}/160\,\text{ms}
-\approx 3.1$\,Mbps --- well below the 9\,Mbps threshold --- for the
-duration of the filter window, explaining the N/C result for all BBR
-variants.
-CUBIC's loss-driven window growth from an undersized initial cwnd
-overcomes the RTT transition in 5.5\,s.
-This N/C is a \emph{metric artifact}: the actual bottleneck capacity
-is unchanged at 10\,Mbps throughout, and all algorithms sustain near-full
-utilisation in steady state both before and after the handover.
-Resolving the MaxBwFilter plateau would require artificially inflating
-bandwidth estimates beyond observed delivery rates --- a modification that
-would compromise BBRv3's model-based design and is outside the scope of
-this extension.
+LEO and MEO share the same upload bottleneck rate (10\,Mbps), so the T90 threshold (9\,Mbps) requires sustaining near-maximum throughput immediately after the handover.
+After the handover the RTT triples from 50\,ms to 160\,ms; BBR's \texttt{min\_rtt} filter retains the stale 50\,ms estimate for up to 10\,s, capping the effective inflight window at BDP$_\mathrm{LEO}$ (62\,KB), yielding only $\approx$3.1\,Mbps --- well below the 9\,Mbps threshold --- for all BBR variants.
+This N/C is a \emph{metric artifact}: the actual bottleneck capacity is unchanged at 10\,Mbps throughout, and all algorithms sustain near-full utilisation in steady state.
 
 \begin{table}[t]
 \centering
@@ -619,20 +583,7 @@ for systemic stability across complex multi-operator deployments.
 
 \subsubsection{Handover-Time Sensitivity}
 
-Under the 1$\times$BDP cap, BBR-SAT achieves T90\,=\,1.5\,s for all
-tested lead times at $T_\mathrm{HO} = 60$\,s, an improvement over the
-4.5\,s baseline at $T_\mathrm{HO} = 30$\,s.
-The longer pre-handover window allows more of the LEO orbit table entry's
-\texttt{bw\_hi} probe cycles to accumulate before CONFIRMED fires,
-reducing the time needed in REFILL.
-At $T_\mathrm{HO} = 120$\,s, convergence degrades: T90\,=\,4.5\,s at
-$\ell = 0$, improving to 1.5\,s at $\ell = 2$\,s.
-The orbit table's 10-second \texttt{min\_rtt} expiry allows the seeded
-GEO RTT entry to become partially stale before the handover fires at
-120\,s; a 2-second lead time re-seeds \texttt{min\_rtt} just before
-the CONFIRMED signal.
-Extending the orbit table's RTT confidence window for long-duration
-pre-handover periods is identified as future work.
+At $T_\mathrm{HO} = 60$\,s, BBR-SAT achieves T90\,=\,1.5\,s at all tested lead times; at $T_\mathrm{HO} = 120$\,s, the orbit table's 10-second \texttt{min\_rtt} expiry causes partial staleness, recoverable with $\ell = 2$\,s.
 
 % ── V-B: Fairness ─────────────────────────────────────────────────────────────
 \subsection{Fairness Under Competition}
@@ -682,21 +633,8 @@ bandwidth advantage over competing BBR flows at any tested lead time.}
 \subsubsection{F3: Steady-State GEO}
 
 Figure~\ref{fig:exp2_fairness}(b) shows the F3 trace.
-Both flows start on the 3\,Mbps GEO beam from $t = 0$.
-CUBIC reaches its characteristic sawtooth steady state by $t \approx 20$\,s.
-At $t = 30$\,s BBR-SAT re-applies its stored GEO BDP context
-(a no-op on link parameters, but it resets \texttt{bw\_hi},
-\texttt{min\_rtt}, and \texttt{inflight\_hi} to the seeded values),
-causing a brief throughput dip visible in both flows as the Jain's trace
-dips below 0.8.
-This occurs because BBR-SAT's measured \texttt{bw\_hi} after 30\,s of
-GEO operation has been probed above the seeded ceiling; the context
-switch resets it to the conservative ephemeris value, temporarily
-clipping the pacing rate until ProbeBW re-probes.
-After $t \approx 39$\,s both flows reach a stable regime:
-BBR-SAT 1.31\,Mbps, CUBIC 1.58\,Mbps, $J = 0.887$.
-The 55/45 CUBIC/BBR-SAT split is consistent across both runs
-(run-to-run $\sigma < 0.1$\,Mbps).
+Both flows start on the 3\,Mbps GEO beam; CUBIC reaches steady state by $t \approx 20$\,s.
+At $t = 30$\,s BBR-SAT re-applies its stored GEO BDP context, causing a brief throughput dip (Jain's index dips below 0.8) before both flows stabilise: BBR-SAT 1.31\,Mbps, CUBIC 1.58\,Mbps, $J = 0.887$ (55/45 CUBIC/BBR-SAT split).
 
 \subsubsection{BBR-SAT vs.\ CUBIC During Handover}
 
