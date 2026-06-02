@@ -14,10 +14,15 @@
 
 \hypersetup{colorlinks=false, pdfborder={0 0 0}}
 
-% Ensure column gutter meets conference requirement (>= 0.2 in)
-\setlength{\columnsep}{0.25in}
-% Ensure top margin is at least 0.75 in on all pages
-\setlength{\topmargin}{-0.25in}
+% Apply page geometry fixes after IEEEtran initialises its layout,
+% so these settings are not overridden by the class.
+% top=0.75in, bottom>=0.95in: topmargin=-0.25in, textheight=9.3in
+% gutter>=0.2in: columnsep=0.3in
+\AtBeginDocument{%
+  \setlength{\topmargin}{-0.25in}%
+  \setlength{\textheight}{9.3in}%
+  \setlength{\columnsep}{0.3in}%
+}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
