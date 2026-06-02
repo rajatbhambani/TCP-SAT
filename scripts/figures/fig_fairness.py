@@ -96,17 +96,17 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.16, 3.2), constrained_layout=Tru
 ax1.plot(t_v3, sat_v3,  color=BBRSAT_COL, lw=1.6, label='BBR-SAT (flow 1)')
 ax1.plot(t_v3, bbrv3,   color=BBRV3_COL,  lw=1.4, ls='--', label='BBRv3 (flow 2)')
 
-ax1.axhline(25, color='grey', ls=':', lw=0.8, alpha=0.4)
-ax1.text(1, 25.5, '25 Mbps fair share (LEO)', fontsize=6, color='grey')
-ax1.axhline(5,  color='grey', ls=':', lw=0.8, alpha=0.5)
-ax1.text(1,  5.4, '5 Mbps fair share (GEO)',  fontsize=6, color='grey')
+ax1.axhline(5,   color='grey', ls=':', lw=0.8, alpha=0.4)
+ax1.text(1, 5.2, '5 Mbps fair share (LEO)', fontsize=6, color='grey')
+ax1.axhline(1.5, color='grey', ls=':', lw=0.8, alpha=0.5)
+ax1.text(1, 1.7, '1.5 Mbps fair share (GEO)', fontsize=6, color='grey')
 
 ax1.axvline(HANDOVER_T, color='black', ls=':', lw=0.9, alpha=0.7)
-ax1.text(HANDOVER_T + 0.7, 44, 'handover', fontsize=6.5, color='black', alpha=0.8)
+ax1.text(HANDOVER_T + 0.7, 6.3, 'handover', fontsize=6.5, color='black', alpha=0.8)
 
 post_v3 = [r for r in r_v3 if r['t'] > HANDOVER_T]
 j_v3 = np.mean([r['j'] for r in post_v3])
-ax1.text(50, 1.5, f'Post-handover Jain J̄={j_v3:.3f}', fontsize=6.5,
+ax1.text(50, 0.3, f'Post-handover Jain J̄={j_v3:.3f}', fontsize=6.5,
          style='italic',
          bbox=dict(boxstyle='round,pad=0.2', fc='lightyellow', ec='grey', alpha=0.9))
 
@@ -125,7 +125,7 @@ ax_ins.axhline(5, color='grey', ls=':', lw=0.6)
 ax1.set_xlabel('Simulated time (s)', fontsize=8)
 ax1.set_ylabel('Throughput (Mbps)', fontsize=8)
 ax1.set_title('(a) F1: Shared LEO→GEO handover (lead=0, 2-run avg)', fontsize=8)
-ax1.set_ylim(0, 52); ax1.set_xlim(0, 90)
+ax1.set_ylim(0, 7); ax1.set_xlim(0, 90)
 ax1.tick_params(labelsize=7)
 ax1.legend(fontsize=6.5, loc='upper left')
 
