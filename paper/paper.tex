@@ -1,3 +1,8 @@
+% IEEEtran CLASSINPUT: must be defined before \documentclass so the class
+% picks them up during loading.  Sets top margin to 0.75in and computes
+% textheight to leave a large enough bottom margin for the footer.
+\def\CLASSINPUTtoptextmargin{0.75in}
+\def\CLASSINPUTbottomtextmargin{1.1in}
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 
@@ -14,15 +19,11 @@
 
 \hypersetup{colorlinks=false, pdfborder={0 0 0}}
 
-% Apply page geometry fixes after IEEEtran initialises its layout,
-% so these settings are not overridden by the class.
-% top=0.75in, bottom>=0.95in: topmargin=-0.25in, textheight=9.3in
-% gutter>=0.2in: columnsep=0.3in
-\AtBeginDocument{%
-  \setlength{\topmargin}{-0.25in}%
-  \setlength{\textheight}{9.3in}%
-  \setlength{\columnsep}{0.3in}%
-}
+% Reduce footskip so the footer (page number) sits at least 0.95in from
+% the page bottom.  IEEEtran default (0.4in) leaves only ~0.5in.
+\setlength{\footskip}{10pt}
+% Gutter: IEEEtran overrides columnsep in AtBeginDocument; set it there too.
+\AtBeginDocument{\setlength{\columnsep}{0.3in}}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
