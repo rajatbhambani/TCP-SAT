@@ -493,15 +493,8 @@ BBR-SAT (ours)     & \textbf{4.5\,s} & \textbf{99\,\%} & \textbf{20.1\,MB} & \te
 CUBIC              & 5.5\,s & 97\,\% & 19.6\,MB & 614\,KB \\
 \bottomrule
 \end{tabular}
-\vspace{2pt}
-
-{\footnotesize Util = post-handover steady-state throughput / 3\,Mbps GEO link rate.
-BBR-SAT achieves 99\,\% utilisation loss-free; CUBIC at 97\,\% via loss.
-Peak Q reflects on-path data; B1/B3/B4 show lower values because they fail
-to converge and remain trapped at $\leq$71\,\% utilisation, not because
-they manage the buffer more conservatively.
-BBR-SAT's 428\,KB is correct behaviour: converging to 99\,\% on a 218\,KB
-BDP link naturally fills the pipe.}
+\vspace{1pt}
+{\footnotesize Util = steady-state throughput\,/\,3\,Mbps GEO link rate.}
 \end{table}
 
 \begin{figure}[t]
