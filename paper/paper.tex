@@ -494,8 +494,10 @@ BBR-SAT (ours)     & \textbf{4.5\,s} & \textbf{99\,\%} & \textbf{20.1\,MB} & \te
 CUBIC              & 5.5\,s & 97\,\% & 19.6\,MB & 614\,KB \\
 \bottomrule
 \end{tabular}
-\vspace{1pt}
+\vspace{2pt}
+\begin{flushleft}
 {\footnotesize Util = steady-state throughput\,/\,3\,Mbps GEO link rate.}
+\end{flushleft}
 \end{table}
 
 \begin{figure}[t]
@@ -541,7 +543,7 @@ B4 fails catastrophically for GEO$\to$LEO (N/C, $<$1\,MB goodput); the 45\,MB tr
 
 \textbf{LEO$\to$MEO metric artifact.}
 LEO and MEO share the same upload bottleneck rate (10\,Mbps), so the T90 threshold (9\,Mbps) requires sustaining near-maximum throughput immediately after the handover.
-After the handover the RTT triples from 50\,ms to 160\,ms; BBR's \texttt{min\_rtt} filter retains the stale 50\,ms estimate for up to 10\,s, capping the effective inflight window at BDP$_\mathrm{LEO}$ (62\,KB), yielding only $\approx$3.1\,Mbps --- well below the 9\,Mbps threshold --- for all BBR variants.
+After the handover the RTT increases from 50\,ms to 160\,ms; BBR's \texttt{min\_rtt} filter retains the stale 50\,ms estimate for up to 10\,s, capping the effective inflight window at BDP$_\mathrm{LEO}$ (62\,KB), yielding only $\approx$3.1\,Mbps --- well below the 9\,Mbps threshold --- for all BBR variants.
 This N/C is a \emph{metric artifact}: the actual bottleneck capacity is unchanged at 10\,Mbps throughout, and all algorithms sustain near-full utilisation in steady state.
 
 \begin{table}[t]
@@ -597,9 +599,7 @@ We evaluate two scenarios using the shared-link simulator described in
 \S\ref{sec:methodology}:
 \textbf{F1}~---~two flows both crossing a LEO$\to$GEO handover at $T=30$\,s;
 and \textbf{F3}~---~two flows that start simultaneously on a GEO beam and
-reach steady state before BBR-SAT re-anchors its BDP context at $T=30$\,s
-(F2, covering BBR-SAT joining an already-converged GEO flow, reduces to
-the F3 post-convergence case and is subsumed by it).
+reach steady state before BBR-SAT re-anchors its BDP context at $T=30$\,s.
 In both scenarios the BBR-SAT flow is flow~1; flow~2 runs either
 Vanilla BBRv3 or CUBIC.
 Per-second throughput and Jain's fairness index~\cite{jain1984} are
@@ -747,7 +747,7 @@ or a fairness-aware pacing mode in BBRv3 itself.
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented BBR-SAT, a minimal extension of BBRv3 that equips QUIC
+We presented BBR-SAT, a minimal extension of BBRv3 that equips TCP and QUIC
 with orbit-aware congestion control for satellite inter-orbit handovers.
 By integrating an ephemeris-seeded orbit parameter table and a two-phase
 PREDICTED/CONFIRMED signal protocol, BBR-SAT eliminates the $8 \times$RTT

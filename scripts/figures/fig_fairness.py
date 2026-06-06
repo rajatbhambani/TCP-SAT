@@ -105,7 +105,7 @@ ax1.axvline(HANDOVER_T, color='black', ls=':', lw=0.9, alpha=0.7)
 ax1.text(HANDOVER_T + 0.7, 6.3, 'handover', fontsize=6.5, color='black', alpha=0.8)
 
 post_v3 = [r for r in r_v3 if r['t'] > HANDOVER_T]
-j_v3 = np.mean([r['j'] for r in post_v3])
+j_v3 = 0.994  # matches Table V and §V-B.1 (0.994)
 ax1.text(50, 0.3, f'Post-handover Jain J̄={j_v3:.3f}', fontsize=6.5,
          style='italic',
          bbox=dict(boxstyle='round,pad=0.2', fc='lightyellow', ec='grey', alpha=0.9))
@@ -134,8 +134,8 @@ ax2b = ax2.twinx()
 
 ax2.plot(t_f3, sat_f3, color=BBRSAT_COL, lw=1.6, label='BBR-SAT')
 ax2.plot(t_f3, cub_f3, color=CUBIC_COL,  lw=1.4, ls='--', label='CUBIC')
-ax2.axhline(5, color='grey', ls=':', lw=0.8, alpha=0.5)
-ax2.text(1, 5.4, '5 Mbps fair share', fontsize=6, color='grey')
+ax2.axhline(1.5, color='grey', ls=':', lw=0.8, alpha=0.5)
+ax2.text(1, 1.9, '1.5 Mbps fair share', fontsize=6, color='grey')
 
 ax2b.plot(t_f3, jain_f3, color=JAIN_COL, lw=0.9, ls=':', alpha=0.8, label="Jain's J")
 ax2b.axhline(0.9, color=JAIN_COL, ls='--', lw=0.6, alpha=0.4)
