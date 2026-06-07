@@ -634,7 +634,7 @@ bandwidth advantage over competing BBR flows at any tested lead time.}
 
 Figure~\ref{fig:exp2_fairness}(b) shows the F3 trace.
 Both flows start on the 3\,Mbps GEO beam; CUBIC reaches steady state by $t \approx 20$\,s.
-At $t = 30$\,s BBR-SAT re-applies its stored GEO BDP context, causing a brief throughput dip (Jain's index dips below 0.8) before both flows stabilise: BBR-SAT 1.31\,Mbps, CUBIC 1.58\,Mbps, $J = 0.887$ (55/45 CUBIC/BBR-SAT split).
+At $t = 30$\,s BBR-SAT re-applies its stored GEO BDP context, causing a brief throughput dip (Jain's index dips below 0.8) before both flows stabilise: BBR-SAT 1.30\,Mbps, CUBIC 1.62\,Mbps, $J = 0.906$ (55/45 CUBIC/BBR-SAT split).
 
 \subsubsection{BBR-SAT vs.\ CUBIC During Handover}
 
@@ -695,7 +695,7 @@ F1 & CUBIC  &  5 & 0.17 & 0.87 & 0.723 \\
 F1 & CUBIC  & 10 & 0.48 & 2.40 & 0.695 \\
 F1 & CUBIC  & 20 & 0.43 & 2.42 & 0.696 \\
 \midrule
-F3 & CUBIC  &  0 & 1.31 & 1.58 & 0.887 \\
+F3 & CUBIC  &  0 & 1.30 & 1.62 & 0.906 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -737,7 +737,7 @@ simultaneous active paths) involve per-path BDP state and
 cross-path pacing interaction not addressed here.
 
 \textbf{BBR/CUBIC coexistence.}
-The 55/45 CUBIC advantage in steady-state GEO (F3, $J = 0.887$) and
+The 55/45 CUBIC advantage in steady-state GEO (F3, $J = 0.906$) and
 the 86/14 split during F1-CUBIC ($J \approx 0.69$) are inherited from
 vanilla BBRv3's loss-averse behaviour on large-BDP links.
 Addressing this would require either ECN-based queue-occupancy signalling

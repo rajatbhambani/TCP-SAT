@@ -24,8 +24,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from collections import defaultdict
 
-IN_DIR  = Path('/home/user/TCP-SAT/results/fairness')
-OUT_DIR = Path('/home/user/TCP-SAT/results/fairness')
+IN_DIR  = Path('/home/rajat/tcpsatproject/results/fairness')      # f3 runs (corrected 3 Mbps)
+IN_V2   = Path('/home/rajat/tcpsatproject/results/fairness_v2')  # F1 corrected 3 Mbps sweeps
+OUT_DIR = Path('/home/rajat/tcpsatproject/results/fairness')
 HANDOVER_T = 30
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -57,8 +58,10 @@ def avg_runs(path1, path2):
     return out
 
 # ── load ──────────────────────────────────────────────────────────────────────
-f1_v3   = avg_runs(IN_DIR/'f1_sweep_run1.csv',        IN_DIR/'f1_sweep_run2.csv')
-f1_cub  = avg_runs(IN_DIR/'f1_cubic_sweep_run1.csv',  IN_DIR/'f1_cubic_sweep_run2.csv')
+# F1: use corrected 3 Mbps sweep results from fairness_v2/
+f1_v3   = load_rows(IN_V2/'f1_sweep.csv')
+f1_cub  = load_rows(IN_V2/'f1_cubic_sweep.csv')
+# F3: 2-run average from fresh 3 Mbps GEO simulation
 f3_rows = sorted(avg_runs(IN_DIR/'f3_run1.csv', IN_DIR/'f3_run2.csv'), key=lambda r: r['t'])
 
 # F1 BBRv3 at lead=0
@@ -119,8 +122,8 @@ ax_ins.bar(x, cub_cub_means, bottom=cub_sat_means, color=CUBIC_COL, alpha=0.85, 
 ax_ins.set_xticks(x); ax_ins.set_xticklabels(leads_label, fontsize=5)
 ax_ins.set_xlabel('lead (s)', fontsize=5.5); ax_ins.set_ylabel('Mbps', fontsize=5.5)
 ax_ins.set_title('F1 vs CUBIC', fontsize=5.5)
-ax_ins.tick_params(labelsize=5); ax_ins.set_ylim(0, 11)
-ax_ins.axhline(5, color='grey', ls=':', lw=0.6)
+ax_ins.tick_params(labelsize=5); ax_ins.set_ylim(0, 4)
+ax_ins.axhline(1.5, color='grey', ls=':', lw=0.6)
 
 ax1.set_xlabel('Simulated time (s)', fontsize=8)
 ax1.set_ylabel('Throughput (Mbps)', fontsize=8)
@@ -144,11 +147,11 @@ ax2b.tick_params(axis='y', labelsize=6, colors=JAIN_COL)
 ax2b.set_ylim(0.3, 1.05)
 
 ax2.axvline(HANDOVER_T, color='black', ls=':', lw=0.9, alpha=0.7)
-ax2.text(HANDOVER_T + 0.7, 19, 'GEO signal', fontsize=6.5, color='black', alpha=0.8)
+ax2.text(HANDOVER_T + 0.7, 5.0, 'GEO signal', fontsize=6.5, color='black', alpha=0.8)
 
 post_f3 = [r for r in f3_rows if r['t'] > HANDOVER_T]
 j_f3 = np.mean([r['j'] for r in post_f3])
-ax2.text(35, 1.5, f'Post-signal Jain J̄={j_f3:.3f}', fontsize=6.5,
+ax2.text(35, 0.3, f'Post-signal Jain J̄={j_f3:.3f}', fontsize=6.5,
          style='italic',
          bbox=dict(boxstyle='round,pad=0.2', fc='lightyellow', ec='grey', alpha=0.9))
 
@@ -159,7 +162,7 @@ ax2.legend(lines1 + lines2, labs1 + labs2, fontsize=6, loc='lower right')
 ax2.set_xlabel('Simulated time (s)', fontsize=8)
 ax2.set_ylabel('Throughput (Mbps)', fontsize=8)
 ax2.set_title('(b) F3: BBR-SAT vs CUBIC — steady-state GEO (2-run avg)', fontsize=8)
-ax2.set_ylim(0, 22); ax2.set_xlim(0, 90)
+ax2.set_ylim(0, 6); ax2.set_xlim(0, 90)
 ax2.tick_params(labelsize=7)
 
 # ── save ─────────────────────────────────────────────────────────────────────
