@@ -557,10 +557,10 @@ This N/C is a \emph{metric artifact}: the actual bottleneck capacity is unchange
 \toprule
 Transition & B1 & B3 & B4 & BBR-SAT & CUBIC \\
 \midrule
-LEO$\to$MEO  & N/C$^\ddagger$ & N/C$^\ddagger$ & N/C$^\ddagger$ & N/C$^\ddagger$ & 5.5\,s \\
-LEO$\to$GEO  & N/C$^\dagger$ & N/C$^\dagger$ & N/C$^\dagger$ & \textbf{4.5\,s} & 5.5\,s \\
+LEO$\to$MEO  & N/C$^\ddagger$\, & N/C$^\ddagger$\, & N/C$^\ddagger$\, & N/C$^\ddagger$\, & 5.5\,s \\
+LEO$\to$GEO  & N/C$^\dagger$\, & N/C$^\dagger$\, & N/C$^\dagger$\, & \textbf{4.5\,s} & 5.5\,s \\
 MEO$\to$LEO  & 0.5\,s & 0.5\,s & 0.5\,s & 0.5\,s  & 0.5\,s \\
-GEO$\to$LEO  & 1.5\,s & 1.5\,s & N/C$^\S$ & 1.5\,s  & 1.5\,s \\
+GEO$\to$LEO  & 1.5\,s & 1.5\,s & N/C$^\S$\, & 1.5\,s  & 1.5\,s \\
 MEO$\to$GEO  & 0.5\,s & 0.5\,s & 0.5\,s & 0.5\,s  & 0.5\,s \\
 GEO$\to$MEO  & 2.5\,s & 2.5\,s & 1.5\,s & 2.5\,s  & 1.5\,s \\
 \bottomrule
@@ -647,8 +647,8 @@ handover (CUBIC $\approx 7$\,Mbps vs.\ BBR-SAT $\approx 3$\,Mbps on
 the shared 10\,Mbps LEO upload beam), confirming that the unfairness is
 inherited directly from BBRv3's known deference to CUBIC~\cite{cardwell2026bbr}
 and is not introduced by the satellite extension.
-Lead time does not meaningfully change the split ($J = 0.687$--$0.723$;
-the $\ell = 5$\,s point is an outlier excluded from this range).
+Lead time does not meaningfully change the fairness split
+($J = 0.687$--$0.723$ across all lead times; $\ell\!=\!5$\,s is a throughput outlier at 0.17/0.87\,Mbps).
 
 \subsubsection{Summary}
 

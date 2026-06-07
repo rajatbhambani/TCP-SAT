@@ -24,9 +24,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from collections import defaultdict
 
-IN_DIR  = Path('/home/rajat/tcpsatproject/results/fairness')      # f3 runs (corrected 3 Mbps)
-IN_V2   = Path('/home/rajat/tcpsatproject/results/fairness_v2')  # F1 corrected 3 Mbps sweeps
-OUT_DIR = Path('/home/rajat/tcpsatproject/results/fairness')
+IN_DIR  = Path('/home/user/TCP-SAT/results/fairness')
+IN_V2   = Path('/home/user/TCP-SAT/results/fairness_v2')
+OUT_DIR = Path('/home/user/TCP-SAT/results/fairness')
 HANDOVER_T = 30
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -124,6 +124,7 @@ ax_ins.set_xlabel('lead (s)', fontsize=5.5); ax_ins.set_ylabel('Mbps', fontsize=
 ax_ins.set_title('F1 vs CUBIC', fontsize=5.5)
 ax_ins.tick_params(labelsize=5); ax_ins.set_ylim(0, 4)
 ax_ins.axhline(1.5, color='grey', ls=':', lw=0.6)
+ax_ins.legend(fontsize=4.5, loc='upper right', framealpha=0.7)
 
 ax1.set_xlabel('Simulated time (s)', fontsize=8)
 ax1.set_ylabel('Throughput (Mbps)', fontsize=8)
