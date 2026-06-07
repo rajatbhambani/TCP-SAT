@@ -113,7 +113,7 @@ $8 \times \mathrm{RTT}_\mathrm{new}$ to clear its pre-handover bandwidth
 estimate.
 On a GEO link ($\mathrm{RTT} \approx 580$\,ms) that amounts to roughly
 5\,seconds of sustained over-pacing at 10\,Mbps into a 3\,Mbps pipe,
-accumulating $\approx$12\,MB of queued data in unmanaged buffers,
+accumulating $\approx$4\,MB in unmanaged large buffers,
 and stalling below 70\,\% utilisation even under a realistic 1$\times$BDP
 droptail cap --- yielding only 13.7\,MB goodput versus BBR-SAT's 20.1\,MB.
 
@@ -162,7 +162,7 @@ limit), neither of which adapts on the timescale of a beam switch.
 \subsection{Prior Work on Satellite Handover CCA}
 
 Five intra-LEO cross-layer mechanisms appeared in 2024--2025:
-StarQUIC~\cite{zhao2024starquic}, SATPIPE~\cite{zhao2025satpipe},
+StarQUIC~\cite{zhao2024starquic}, SatPipe~\cite{zhao2025satpipe},
 LeoCC~\cite{lai2025leocc}, Creo~\cite{yan2025creo},
 and OrbCC~\cite{valentine2025orbcc}; Table~\ref{tab:related} summarises
 their signal and algorithmic approach.
@@ -197,10 +197,10 @@ is absent from all prior work.
 \toprule
 Mechanism & Mid-Conn? & Cross-Orbit? & Signal \\
 \midrule
-PPB~\cite{lai2026lsncc}                       & reactive & No  & ICMP probe \\
+PPB~\cite{lai2026lsncc}                       & No       & No  & ICMP probe \\
 Careful Resume~\cite{kuhn2025carefulresume}   & No       & No  & cached obs.\ \\
 StarQUIC~\cite{zhao2024starquic}              & Yes      & No  & 15-s sched.\ \\
-SATPIPE~\cite{zhao2025satpipe}                & Yes      & No  & NTP sched.\ \\
+SatPipe~\cite{zhao2025satpipe}                & Yes      & No  & NTP sched.\ \\
 LeoCC~\cite{lai2025leocc}                     & Yes      & No  & ICMP probe \\
 Creo~\cite{yan2025creo}                       & Yes      & No  & cross-layer \\
 OrbCC~\cite{valentine2025orbcc}               & Yes      & No  & INT \\
@@ -331,7 +331,7 @@ at deterministic simulation times.
 A \texttt{vary\_link\_spec} array changes link parameters (rate, latency,
 buffer) at \texttt{handover\_time\_s}, modelling the beam switch.
 
-Single-flow experiments use one QUIC connection (server$\to$client bulk
+Single-flow experiments use one QUIC connection (client$\to$server bulk
 transfer); fairness experiments use two connections sharing the same
 bottleneck.
 All simulations are zero-loss (no packet loss injection) to isolate the
@@ -357,7 +357,7 @@ GEO   & 10\,Mbps & 3\,Mbps  & 580\,ms & 218\,KB \\
 \end{table}
 
 Table~\ref{tab:orbits} lists the parameters used for each orbit class.
-The upload rate is the bottleneck for QUIC bulk transfer (server$\to$client);
+The upload rate is the bottleneck for QUIC bulk transfer (client$\to$server);
 the higher download rate models the asymmetric capacity common in satellite
 links and serves as the ACK return path.
 We model the bottleneck with a 1$\times$BDP droptail cap
@@ -427,7 +427,7 @@ A trial is declared \emph{not converged} (N/C) if T90 exceeds the
 60-second post-handover window.
 We additionally record post-handover steady-state throughput
 (mean over $t \in (T_\mathrm{HO}+20, T_\mathrm{HO}+60]$\,s),
-goodput (total bytes delivered in the 90-second run),
+post-handover goodput ($t \in (T_\mathrm{HO}, 90]$\,s),
 and peak on-path queue depth.
 
 \subsubsection{LEO$\to$GEO: the Critical Transition}
@@ -496,7 +496,7 @@ CUBIC              & 5.5\,s & 97\,\% & 19.6\,MB & 614\,KB \\
 \end{tabular}
 \vspace{2pt}
 \begin{flushleft}
-{\footnotesize Util = steady-state throughput\,/\,3\,Mbps GEO link rate.}
+{\footnotesize Util = throughput\,/\,3\,Mbps GEO link rate. CUBIC peak-Q exceeds the 1$\times$BDP cap (${\approx}$436\,KB) at a pre-convergence transient.}
 \end{flushleft}
 \end{table}
 
@@ -531,7 +531,7 @@ The anomalous improvement at $\ell = 30$\,s (T90\,=\,2.5\,s) occurs because the 
 For bandwidth-increasing transitions (MEO$\to$LEO, GEO$\to$LEO,
 GEO$\to$MEO) and the moderate MEO$\to$GEO transition, all baselines
 converge at $\ell = 0$ with T90 $\leq 2.5$\,s
-(Table~\ref{tab:exp1_all_transitions}), with the exception of B4.
+(Table~\ref{tab:exp1_all_transitions}), with the exception of B4 on GEO$\to$LEO.
 Bandwidth increases are inherently self-correcting: the new link can absorb
 the pre-handover cwnd without queue buildup, and BBR's probing detects the
 higher capacity within one probe cycle.
@@ -552,7 +552,7 @@ This N/C is a \emph{metric artifact}: the actual bottleneck capacity is unchange
          (all transitions)}
 \label{tab:exp1_all_transitions}
 \small
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{5pt}
 \begin{tabular}{lrrrrr}
 \toprule
 Transition & B1 & B3 & B4 & BBR-SAT & CUBIC \\
@@ -617,8 +617,8 @@ BBR-SAT and BBRv3 when both flows cross the handover with zero lead time.
 Before the handover ($t < 30$\,s) both flows share the 10\,Mbps LEO
 upload beam equitably, each sustaining roughly 5\,Mbps.
 At $t = 30$\,s the link drops to 3\,Mbps and the RTT rises to
-$\approx580$\,ms; both flows converge to the new GEO fair share
-(1.5\,Mbps each) within one to two seconds.
+$\approx580$\,ms; both flows settle at $\approx$1.08\,Mbps each
+(${\sim}72$\,\% util, below the 1.5\,Mbps theoretical fair share).
 Averaged over $t \in (30, 90]$\,s, Jain's index is $J = 0.994$,
 confirming near-perfect fairness.
 
@@ -647,8 +647,8 @@ handover (CUBIC $\approx 7$\,Mbps vs.\ BBR-SAT $\approx 3$\,Mbps on
 the shared 10\,Mbps LEO upload beam), confirming that the unfairness is
 inherited directly from BBRv3's known deference to CUBIC~\cite{cardwell2026bbr}
 and is not introduced by the satellite extension.
-Lead time does not meaningfully change the split ($J = 0.687$--$0.723$
-across tested values).
+Lead time does not meaningfully change the split ($J = 0.687$--$0.723$;
+the $\ell = 5$\,s point is an outlier excluded from this range).
 
 \subsubsection{Summary}
 
@@ -717,8 +717,8 @@ for this transition.
 \subsection{Limitations and Future Work}
 
 \textbf{Orbit table staleness.}
-The 10-second \texttt{min\_rtt} expiry causes BBR-SAT to fail for
-handover times $T_\mathrm{HO} \geq 120$\,s.
+The 10-second \texttt{min\_rtt} expiry causes BBR-SAT to fail at $\ell = 0$
+for $T_\mathrm{HO} \geq 120$\,s; recoverable with $\ell \geq 2$\,s (see \S\ref{sec:exp1}).
 Refreshing the orbit table entry during the PREDICTED window --- a
 one-line change in the PREDICTED handler --- would fix this at the
 cost of a brief ProbeBW\_DOWN that re-seeds \texttt{min\_rtt}.
